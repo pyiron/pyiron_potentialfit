@@ -30,14 +30,9 @@ Fe_bcc  ...
 
 from typing import Callable, Dict, Any, Optional
 
-from warnings import catch_warnings
-
 import numpy as np
 import pandas as pd
-import seaborn as sns
 import matplotlib.pyplot as plt
-
-from ase.atoms import Atoms as ASEAtoms
 
 from pyiron_atomistics.atomistics.structure.atoms import Atoms
 from pyiron_atomistics.atomistics.structure.has_structure import HasStructure

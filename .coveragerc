@@ -1,5 +1,5 @@
 # .coveragerc to control coverage.py
 [run]
-source = pyiron_contrib
-omit = pyiron_contrib/_version.py
+source = pyiron_potentialfit
+omit = pyiron_potentialfit/_version.py
 concurrency = multiprocessing
