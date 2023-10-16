@@ -4,6 +4,9 @@ dependencies:
 - ipykernel
 - nbsphinx
 - ase =3.22.1
+- coveralls
+- coverage
+- codacy-coverage
 - matplotlib =3.8.0
 - numpy =1.26.0
 - pyiron_base =0.6.7
