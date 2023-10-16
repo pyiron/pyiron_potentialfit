@@ -5,7 +5,7 @@
 import os
 import unittest
 from pyiron_atomistics._tests import TestWithCleanProject
-import pyiron_contrib
+import pyiron_potentialfit
 
 
 class TestTrainingContainer(TestWithCleanProject):
