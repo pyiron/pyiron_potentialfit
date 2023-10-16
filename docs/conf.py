@@ -50,7 +50,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = 'pyiron_contrib'
+project = 'pyiron_potentialfit'
 copyright = u'2021, Max-Planck-Institut für Eisenforschung GmbH - Computational Materials Design (CM) Department ' \
             u'All rights reserved'
 
@@ -274,10 +274,10 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
   ('index',
-   'pyiron_contrib',
+   'pyiron_potentialfit',
    'pyiron Documentation',
    'Max-Planck-Institut für Eisenforschung GmbH - Computational Materials Design (CM) Department',
-   'pyiron_contrib',
+   'pyiron_potentialfit',
    'One line description of project.',
    'Miscellaneous'),
 ]
@@ -294,7 +294,7 @@ texinfo_documents = [
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 # texinfo_no_detailmenu = False
 
-main(['-e', '-o', 'apidoc', '../pyiron_contrib', '--force'])
+main(['-e', '-o', 'apidoc', '../pyiron_potentialfit', '--force'])
 
 curdir = os.path.dirname(os.path.abspath(__file__))
 

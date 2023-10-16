@@ -6,12 +6,12 @@ import versioneer
 
 
 setup(
-    name='pyiron_contrib',
+    name='pyiron_potentialfit',
     version=versioneer.get_version(),
     description='Repository for user-generated plugins to the pyiron IDE.',
     long_description='http://pyiron.org',
 
-    url='https://github.com/pyiron/pyiron_contrib',
+    url='https://github.com/pyiron/pyiron_potentialfit',
     author='Max-Planck-Institut für Eisenforschung GmbH - Computational Materials Design (CM) Department',
     author_email='huber@mpie.de',
     license='BSD',
@@ -29,34 +29,14 @@ setup(
 
     keywords='pyiron',
     packages=find_packages(exclude=["*tests*"]),
-    install_requires=[        
+    install_requires=[
+        'ase==3.22.1',
+        'pyiron_atomistics==0.3.4',
         'matplotlib==3.8.0',
         'numpy==1.26.0',
         'pyiron_base==0.6.7',
         'scipy==1.11.3',
-        'seaborn==0.13.0',
-        'pyparsing==3.1.1',
     ],
-    extras_require={
-        'atomistic': [
-            'ase==3.22.1',
-            'pyiron_atomistics==0.3.4',
-            'pycp2k==0.2.2',
-        ],
-        'fenics': [
-            'fenics==2019.1.0',
-            'mshr==2019.1.0',
-        ],
-        'image': ['scikit-image==0.21.0'],
-        'generic': [
-            'boto3==1.28.62', 
-            'moto==4.2.5'
-        ],
-        'tinybase': [
-            'distributed==2023.9.3',
-            'pympipool==0.7.1'
-        ]
-    },
     cmdclass=versioneer.get_cmdclass(),
     
 )
