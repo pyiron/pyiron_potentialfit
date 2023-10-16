@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from pyiron_potentialfit.mlip import potential
+from pyiron_potentialfit.mlip.parser import potential
 
 mtp08 = """
 MTP
