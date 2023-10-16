@@ -2,13 +2,11 @@ channels:
 - conda-forge
 dependencies:
 - ase =3.22.1
-- coveralls
-- coverage
-- codacy-coverage
 - matplotlib =3.8.0
 - numpy =1.26.0
 - pyiron_base =0.6.7
 - pyiron_atomistics =0.3.4
+- pyiron-data =0.0.25
 - pyparsing =3.1.1
 - scipy =1.11.3
 - python >= 3.10
