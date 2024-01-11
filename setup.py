@@ -31,10 +31,10 @@ setup(
     packages=find_packages(exclude=["*tests*"]),
     install_requires=[
         'ase==3.22.1',
-        'pyiron_atomistics==0.3.7',
+        'pyiron_atomistics==0.4.4',
         'matplotlib==3.8.2',
         'numpy==1.26.3',
-        'pyiron_base==0.6.9',
+        'pyiron_base==0.6.20',
         'scipy==1.11.4',
     ],
     cmdclass=versioneer.get_cmdclass(),
