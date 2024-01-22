@@ -2,7 +2,10 @@ channels:
 - conda-forge
 dependencies:
 - ipykernel
+- myst-parser
 - nbsphinx
+- sphinx-gallery
+- sphinx-rtd-theme
 - ase =3.22.1
 - coveralls
 - coverage
@@ -13,4 +16,4 @@ dependencies:
 - pyiron_atomistics =0.3.7
 - pyiron-data =0.0.25
 - pyparsing =3.1.1
-- scipy =1.11.4
+- scipy =1.12.0
