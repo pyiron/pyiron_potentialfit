@@ -6,6 +6,8 @@ from ase.data import atomic_masses, atomic_numbers
 from pyiron_base import DataContainer, PyironFactory
 
 from pyiron_potentialfit.atomicrex.utility_functions import write_pretty_xml
+from pyiron_potentialfit.atomicrex.potential_factory import ARPotFactory
+from pyiron_potentialfit.atomicrex.function_factory import FunctionFactory
 from pyiron_potentialfit.atomicrex.parameter_constraints import (
     ParameterConstraints,
 )

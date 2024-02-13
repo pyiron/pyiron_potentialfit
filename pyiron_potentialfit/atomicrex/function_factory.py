@@ -343,7 +343,11 @@ class BaseFunctionMixin:
 
     def lock_parameters(self, filter_func=None):
         for param in self.parameters.values():
-            param.lock(filter_func=filter_func)
+            param.lock_value(filter_func=filter_func)
+
+    def randomize_parameters(self, rng, filter_func=None):
+        for param in self.parameters.values():
+            param.randomize(rng=rng, filter_func=filter_func)
 
     def set_max_values(self, constant=None, factor=None, filter_func=None):
         """
@@ -411,6 +415,10 @@ class MetaFunctionMixin:
     def lock_parameters(self, filter_func=None):
         for f in self.functions.values():
             f.lock_parameters(filter_func=filter_func)
+
+    def randomize_parameters(self, rng, filter_func=None):
+        for f in self.functions.values():
+            f.randomize_parameters(rng=rng, filter_func=filter_func)
 
     def set_max_values(self, constant=None, factor=None, filter_func=None):
         """
@@ -637,8 +645,8 @@ class Spline(DataContainer, BaseFunctionMixin):
 
     def lock_parameters(self, filter_func=None):
         super().lock_parameters(filter_func=filter_func)
-        self.derivative_left.lock(filter_func=filter_func)
-        self.derivative_right.lock(filter_func=filter_func)
+        self.derivative_left.lock_value(filter_func=filter_func)
+        self.derivative_right.lock_value(filter_func=filter_func)
 
     def set_max_values(self, constant=None, factor=None, filter_func=None):
         super().set_max_values(constant, factor, filter_func)
@@ -1384,6 +1392,7 @@ class FunctionParameter(DataContainer):
         fitable=True,
         tag=None,
     ):
+        super().__init__()
         self.param = param
         self.start_val = start_val
         self.enabled = enabled
@@ -1453,11 +1462,28 @@ class FunctionParameter(DataContainer):
         if factor is not None:
             self.min_val = -abs(self.start_val) * factor
 
-    def lock(self, filter_func=None):
+    def lock_value(self, filter_func=None):
         if filter_func is not None:
             if not filter_func(self):
                 return
         self.enabled = False
+
+    def randomize(
+        self,
+        rng,
+        filter_func=None,
+    ):
+        if filter_func is not None:
+            if not filter_func(self):
+                return
+
+        if self.enabled:
+            if self.min_val is None or self.max_val is None:
+                raise ValueError(
+                    f"Min and/or max val not set for {self.param}, can't randomize"
+                )
+
+            self.start_val = rng.uniform(self.min_val, self.max_val)
 
 
 class FunctionParameterList(DataContainer):
