@@ -366,27 +366,28 @@ class TrainingPlots(StructurePlots):
 
 
 _HDF_KEYS = {
-        "energy": "output/generic/energy_pot",
-        "forces": "output/generic/forces",
-        "stress": "output/generic/pressures",
-        "indices": "output/generic/indices",
-        "species": "input/structure/species",
-        "cell": "output/generic/cells",
-        "positions": "output/generic/positions",
-        "pbc": "input/structure/cell/pbc",
+    "energy": "output/generic/energy_pot",
+    "forces": "output/generic/forces",
+    "stress": "output/generic/pressures",
+    "indices": "output/generic/indices",
+    "species": "input/structure/species",
+    "cell": "output/generic/cells",
+    "positions": "output/generic/positions",
+    "pbc": "input/structure/cell/pbc",
 }
 
 _JOB_HDF_OVERLAY_KEYS = {
-        "Vasp": {
-            # For DFT one should use the smeared energy to obtain values
-            # consistent with the forces, but the default energy_pot of DFT
-            # jobs is the energy extrapolated to zero smearing
-            "energy": "output/generic/dft/energy_free",
-            # HACK: VASP work-around, current contents of pressures are meaningless, correct values are in
-            # output/generic/stresses
-            "stress": "output/generic/stresses",
-        }
+    "Vasp": {
+        # For DFT one should use the smeared energy to obtain values
+        # consistent with the forces, but the default energy_pot of DFT
+        # jobs is the energy extrapolated to zero smearing
+        "energy": "output/generic/dft/energy_free",
+        # HACK: VASP work-around, current contents of pressures are meaningless, correct values are in
+        # output/generic/stresses
+        "stress": "output/generic/stresses",
+    }
 }
+
 
 class TrainingStorage(StructureStorage):
     def __init__(self):
@@ -431,10 +432,11 @@ class TrainingStorage(StructureStorage):
             ]
         return self._table_cache
 
-    def include_job(self,
-                    job,
-                    iteration_step=-1,
-                    hdf_keys=None,
+    def include_job(
+        self,
+        job,
+        iteration_step=-1,
+        hdf_keys=None,
     ):
         """
         Add structure, energy, forces and pressures from an inspected or loaded job.
