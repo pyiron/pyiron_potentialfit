@@ -1,7 +1,7 @@
 from mpi4py import MPI
 from fitsnap3lib.fitsnap import FitSnap
 from pyiron_base import PythonTemplateJob, DataContainer
-from pyiron_lanl.fitsnap.common import ase_scraper
+from pyiron_potentialfit.fitsnap.common import ase_scraper
 
 
 default_input = settings = {

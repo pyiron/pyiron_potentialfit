@@ -36,6 +36,7 @@ setup(
         'numpy==1.26.2',
         'pyiron_base==0.6.9',
         'scipy==1.11.4',
+        'fitsnap3==3.1.0.4',
     ],
     cmdclass=versioneer.get_cmdclass(),
     
