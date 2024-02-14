@@ -13,7 +13,6 @@ JOB_CLASS_DICT.update(
         "RandomDisMaster": "pyiron_potentialfit.mlip.masters",
         "RandomMDMaster": "pyiron_potentialfit.mlip.masters",
         "RunnerFit": "pyiron_potentialfit.runner.job",
-        "MlipSelect": "pyiron_potentialfit.mlip.mlipselect",
         "Mlip": "pyiron_potentialfit.mlip.mlip",
         "LammpsMlip": "pyiron_potentialfit.mlip.lammps",
         "Atomicrex": "pyiron_potentialfit.atomicrex.atomicrex_job",
