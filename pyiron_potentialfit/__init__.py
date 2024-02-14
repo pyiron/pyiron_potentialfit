@@ -16,7 +16,6 @@ JOB_CLASS_DICT.update(
         "MlipSelect": "pyiron_potentialfit.mlip.mlipselect",
         "Mlip": "pyiron_potentialfit.mlip.mlip",
         "LammpsMlip": "pyiron_potentialfit.mlip.lammps",
-        "MlipJob": "pyiron_potentialfit.mlip.mlipjob",
         "Atomicrex": "pyiron_potentialfit.atomicrex.atomicrex_job",
         "StructureMasterInt": "pyiron_potentialfit.atomistics.job.structurelistmasterinteractive",
         "MlipDescriptors": "pyiron_potentialfit.mlip.mlipdescriptors",
