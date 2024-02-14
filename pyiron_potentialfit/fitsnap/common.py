@@ -1,6 +1,7 @@
 import numpy as np
 from fitsnap3lib.scrapers.ase_funcs import get_apre, create_shared_arrays
 
+
 def calc_bispectrum_names(twojmax):
     lst = []
     for j1 in range(0, twojmax + 1):
@@ -9,6 +10,7 @@ def calc_bispectrum_names(twojmax):
                 if j >= j1:
                     lst.append([j1 / 2.0, j2 / 2.0, j / 2.0])
     return lst
+
 
 def ase_scraper(
     s, frames, energies, forces, stresses=[[0, 0, 0], [0, 0, 0], [0, 0, 0]]
