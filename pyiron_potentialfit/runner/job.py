@@ -34,7 +34,7 @@ from pyiron_base import ProjectHDFio, FlattenedStorage
 from pyiron_base import state, Executable, GenericJob, DataContainer
 from pyiron_base import HasStorage
 
-from pyiron_potentialfit.ml import PotentialFit
+from pyiron_potentialfit.ml.potentialfit import PotentialFit
 from pyiron_potentialfit.atomistics.job import TrainingContainer, TrainingStorage
 
 from .utils import container_to_ase

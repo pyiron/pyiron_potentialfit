@@ -25,7 +25,7 @@ from pyiron_potentialfit.atomistics.job.trainingcontainer import (
     TrainingStorage,
     TrainingContainer,
 )
-from pyiron_potentialfit.ml import PotentialFit
+from pyiron_potentialfit.ml.potentialfit import PotentialFit
 
 from pyiron_atomistics.atomistics.structure.atoms import (
     Atoms as pyironAtoms,

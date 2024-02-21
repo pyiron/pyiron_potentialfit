@@ -18,7 +18,7 @@ from pyiron_base import (
     FlattenedStorage,
 )
 from pyiron_atomistics import Atoms
-from pyiron_potentialfit.ml import PotentialFit
+from pyiron_potentialfit.ml.potentialfit import PotentialFit
 from pyiron_potentialfit.mlip.cfgs import (
     savecfgs,
     loadcfgs,

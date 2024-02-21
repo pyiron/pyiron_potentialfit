@@ -15,3 +15,5 @@ dependencies:
 - python >= 3.10
 - lammps
 - nglview >=3.0.8
+- pip:
+  - runnerase==0.3.3
