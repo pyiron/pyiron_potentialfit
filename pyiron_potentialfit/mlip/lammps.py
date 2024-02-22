@@ -172,7 +172,7 @@ class MlipInput(Input):
     def to_dict(self):
         data_dict = super().to_dict()
         for k, v in self.mlip.to_dict().items():
-            data_dict[self.mlip.table_name + '/' + k] = v
+            data_dict[self.mlip.table_name + "/" + k] = v
         return data_dict
 
     def from_hdf(self, hdf5):
