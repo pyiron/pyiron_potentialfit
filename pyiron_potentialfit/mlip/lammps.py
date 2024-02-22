@@ -169,24 +169,13 @@ class MlipInput(Input):
         self.mlip = MlipParameter()
         super(MlipInput, self).__init__()
 
-    def to_hdf(self, hdf5):
-        """
-
-        Args:
-            hdf5:
-        Returns:
-        """
-        with hdf5.open("input") as hdf5_input:
-            self.mlip.to_hdf(hdf5_input)
-        super(MlipInput, self).to_hdf(hdf5)
+    def to_dict(self):
+        data_dict = super().to_dict()
+        for k, v in self.mlip.to_dict().items():
+            data_dict[self.mlip.table_name + '/' + k] = v
+        return data_dict
 
     def from_hdf(self, hdf5):
-        """
-
-        Args:
-            hdf5:
-        Returns:
-        """
         with hdf5.open("input") as hdf5_input:
             self.mlip.from_hdf(hdf5_input)
         super(MlipInput, self).from_hdf(hdf5)
