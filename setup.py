@@ -34,7 +34,7 @@ setup(
         'pyiron_atomistics==0.4.16',
         'matplotlib==3.8.2',
         'numpy==1.26.2',
-        'pyiron_base==0.6.9',
+        'pyiron_base==0.7.9',
         'scipy==1.11.4',
         'runnerase==0.3.3',
     ],
