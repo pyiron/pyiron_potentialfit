@@ -373,7 +373,7 @@ class PacemakerJob(GenericJob, PotentialFit):
             predicted_data_fs.to_hdf(hdf=hdf5_output, group_name="predicted_data")
 
     def get_lammps_potential(self):
-        elements_name = self["output/potential/elements_name"]
+        elements_name = self.project_hdf5["output/potential/elements_name"]
         elem = " ".join(elements_name)
         pot_file_name = self.get_final_potential_filename_ace()
         pot_dict = {
@@ -428,10 +428,10 @@ class PacemakerJob(GenericJob, PotentialFit):
         self._train_job_id_list.append(job_id)
 
     def _get_training_data(self) -> TrainingStorage:
-        return self["output/training_data"].to_object()
+        return self.project_hdf5["output/training_data"].to_object()
 
     def _get_predicted_data(self) -> FlattenedStorage:
-        return self["output/predicted_data"].to_object()
+        return self.project_hdf5["output/predicted_data"].to_object()
 
     # copied/adapted from mlip.py
     def create_training_dataframe(
