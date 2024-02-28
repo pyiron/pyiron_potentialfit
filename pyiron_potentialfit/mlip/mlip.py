@@ -133,7 +133,7 @@ class Mlip(GenericJob, PotentialFit):
                     "Name": ["".join(elements)],
                     "Filename": [self.potential_files],
                     "Model": ["Custom"],
-                    "Species": [elements],
+                    "Species": [list(map(str, elements))],
                     "Config": [["pair_style mlip mlip.ini\n", "pair_coeff * *\n"]],
                 }
             )
