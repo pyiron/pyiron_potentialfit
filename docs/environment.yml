@@ -17,5 +17,6 @@ dependencies:
 - pyiron-data =0.0.25
 - pyparsing =3.1.1
 - scipy =1.11.4
+- fitsnap3 =3.1.0.4
 - pip:
   - runnerase==0.3.3
