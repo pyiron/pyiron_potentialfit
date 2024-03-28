@@ -32,7 +32,7 @@ setup(
     install_requires=[
         'ase==3.22.1',
         'pyiron_atomistics==0.4.16',
-        'matplotlib==3.8.2',
+        'matplotlib==3.8.3',
         'numpy==1.26.4',
         'pyiron_base==0.7.9',
         'scipy==1.11.4',
