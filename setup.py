@@ -37,6 +37,8 @@ setup(
         'pyiron_base==0.7.9',
         'scipy==1.11.4',
         'runnerase==0.3.3',
+        # spgfit
+        'dill'
     ],
     cmdclass=versioneer.get_cmdclass(),
 )
