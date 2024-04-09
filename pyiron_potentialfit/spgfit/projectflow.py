@@ -89,6 +89,9 @@ class InputOutputBase(HasStoredTraits):
         return self
 
 class Input(InputOutputBase):
+    pass
+
+class SymlinkInput(Input):
     symlink = Bool(default_value=True, help='Whether to symlink the project or not')
 
 class Output(InputOutputBase):
@@ -285,7 +288,7 @@ class ProjectFlow(HasHDF, abc.ABC):
             if_new(self)
             raise RunAgain('starting new workflow')
 
-        if number_of_jobs is not None and len(pr.job_table()) < number_of_jobs:
+        if number_of_jobs is not None and len(self.project.job_table()) < number_of_jobs:
             logger.info('project has less than advertised jobs; run from new again')
             if_new(self)
             raise RunAgain('starting some new calculations')
@@ -332,7 +335,7 @@ class FunctionContainer(HasHDF):
     def __call__(self, *args, **kwargs):
         return self.func(*args, **kwargs)
 
-class StructureInput(Input):
+class StructureInput(SymlinkInput, Input):
     symlink = Bool(default_value=False, help='Whether to symlink the project or not')
 
     # This is what it really should be, but the way traitlets implement type checking conflicts with importlib.reload,
@@ -341,7 +344,7 @@ class StructureInput(Input):
     job = Any(help='Must be a JobFactory from pyiron_contrib.jobfactories')
     structures = Instance(StructureStorage, args=())
     output_structures = Bool(default_value=False, help="populate output.structures with results of each calculation")
-    table_setup = Callable(allow_none=True)
+    table_setup = Callable(default_value=None, allow_none=True)
     hash_job_names = Bool(default_value=False)
 
     @default('job')

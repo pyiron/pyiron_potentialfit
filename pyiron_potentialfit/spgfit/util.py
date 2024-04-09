@@ -1,5 +1,12 @@
-from pyiron_base import Project
+from collections import defaultdict
+from itertools import combinations_with_replacement
+import warnings
 import os.path
+import os
+
+import numpy as np
+
+from pyiron_base import Project
 
 # Extracted from Vasp PBE POTCARs (default valency)
 # (implicitly sorted by atomic number, important!)
@@ -118,9 +125,20 @@ def get_table(pr, table_name, add=None, delete_existing_job=False):
         tab.run()
         return tab
 
+SYMLINK_TARGET = os.getenv('SPGFIT_SYMLINK_TARGET', default='/cmmc/ptmp')
 
 def symlink_project(pr: Project):
-        target_dir = pr.project_path
-        if target_dir[-1] == '/':
-            target_dir = target_dir[:-1]
-        pr.symlink(os.path.join('/cmmc/ptmp', os.path.dirname(target_dir)))
+    if SYMLINK_TARGET.lower() == "false":
+        return
+    if not os.path.isdir(SYMLINK_TARGET):
+        warnings.warn(
+                f"Configured symlink path '{SYMLINK_TARGET}' does not exist. Likely because you are not running on the "
+                 "MPIE cluster.  You can configure it by setting the SPGFIT_SYMLINK_TARGET environment variable or "
+                 "overwriting pyiron_potentialfit.spgfit.util.SYMLINK_TARGET before running any SpgFit functions. "
+                 "You can disable this feature by setting it to 'False'."
+        )
+        return
+    target_dir = pr.project_path
+    if target_dir[-1] == '/':
+        target_dir = target_dir[:-1]
+    pr.symlink(os.path.join(SYMLINK_TARGET, os.path.dirname(target_dir)))
