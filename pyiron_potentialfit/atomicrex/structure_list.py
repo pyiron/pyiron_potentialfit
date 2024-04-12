@@ -846,10 +846,10 @@ def user_structure_xml(identifier, fit_properties, pbc, cell, positions, symbols
         mod_poscar=False,
     )
 
-    pbc = ET.SubElement(struct_xml, "pbc")
-    pbc.set("x", f"{pbc[0]}".lower())
-    pbc.set("y", f"{pbc[1]}".lower())
-    pbc.set("z", f"{pbc[2]}".lower())
+    xmlpbc = ET.SubElement(struct_xml, "pbc")
+    xmlpbc.set("x", f"{pbc[0]}".lower())
+    xmlpbc.set("y", f"{pbc[1]}".lower())
+    xmlpbc.set("z", f"{pbc[2]}".lower())
 
     xmlcell = ET.SubElement(struct_xml, "cell")
     for i in range(3):
