@@ -783,8 +783,8 @@ def structure_meta_xml(
     relative_weight,
     clamp,  ## Not sure if and how this combines with relax in the ARFitParameter sets
     fit_properties,
-    struct_file_path,
-    fit,
+    struct_file_path=None,
+    fit=True,
     mod_poscar=True,
 ):
     """
@@ -820,12 +820,7 @@ def structure_meta_xml(
             poscar_file.text = f"POSCAR_{identifier}"
         else:
             poscar_file.text = f"{struct_file_path}POSCAR_{identifier}"
-    else:
-        #    struct_xml.extend(structure_to_xml_element(structure))
-        raise NotImplementedError(
-            "Only writing structure meta information, \n"
-            "not structure data for now because this is not implemented in atomicrex"
-        )
+
 
     if not clamp:
         relax_dof = ET.SubElement(struct_xml, "relax-dof")
