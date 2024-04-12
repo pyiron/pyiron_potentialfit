@@ -130,6 +130,21 @@ def read_generic_parameters(hdf, key):
     gp.from_hdf(hdf)
     return gp[key]
 
+def fast_forward(timeout, spec):
+    print("Fast forward in", timeout, "...")
+    print(spec, __spec__)
+    # restarting the script instead of looping in python means I can edit the files while they run.  *Nothing*
+    # could possibly go wrong and it's convenient!
+    import time, sys, os
+    time.sleep(timeout)
+    os.execl(sys.executable, sys.executable, '-m', spec.name, *sys.argv[1:])
+    ## Failed iterations for the historic record
+    # os.execl(sys.executable, sys.argv[0], '-m', __spec__.name, *sys.argv[1:])
+    # won't work because modules don't have the exec bit set
+    # os.execl(*sys.argv)
+    # won't work because argument will be (mis-) interpreted by the python executable itself
+    # os.execlp('python', *sys.argv)
+
 SYMLINK_TARGET = os.getenv('SPGFIT_SYMLINK_TARGET', default='/cmmc/ptmp')
 
 def symlink_project(pr: Project):

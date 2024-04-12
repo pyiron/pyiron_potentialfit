@@ -18,7 +18,7 @@ from .projectflow import (
         WorkflowProjectConfig,
         RunAgain
 )
-from .util import DistanceFilter
+from .util import DistanceFilter,fast_forward
 
 from tqdm.auto import tqdm
 import numpy as np
@@ -325,6 +325,10 @@ if __name__ == '__main__':
             '-r', '--run-time', type=float, default=CalculationConfig.run_time,
             help='Run time limit for each DFT run in seconds'
     )
+    parser.add_argument(
+            '--fast-forward', type=int, default=None,
+            help='Automatically go to the next step after sleeping for this many seconds'
+    )
     workflow_group = parser.add_argument_group('Workflow')
     workflow_group.add_argument(
             '--delete-existing-job', action='store_true',
@@ -376,3 +380,5 @@ if __name__ == '__main__':
         every = combine(pr['containers'], map(pr['containers'].load, args.containers),
                         name=args.final, min_dist=args.min_dist,
                         delete_existing_job=args.delete_existing_job)
+    elif args.fast_forward is not None:
+        fast_forward(args.fast_forward, __spec__)

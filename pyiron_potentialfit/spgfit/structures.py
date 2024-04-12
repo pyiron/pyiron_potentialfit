@@ -33,7 +33,7 @@ from .projectflow import (
         RunAgain,
         WorkflowProjectConfig,
 )
-from .util import RCORE, DistanceFilter
+from .util import RCORE, DistanceFilter, fast_forward
 
 from pyiron_contrib.jobfactories import VaspFactory
 from pyiron_contrib.repair import HandyMan
@@ -752,14 +752,4 @@ if __name__ == '__main__':
     pr.data.state = state
     pr.data.write()
     if state != "finished" and args.fast_forward is not None:
-        print("Fast forward in", args.fast_forward, "...")
-        # restarting the script instead of looping in python means I can edit the files while they run.  *Nothing*
-        # could possibly go wrong and it's convenient!
-        import time, sys, os
-        time.sleep(args.fast_forward)
-        os.execl(sys.executable, sys.executable, '-m', __spec__.name, *sys.argv[1:])
-        # os.execl(sys.executable, sys.argv[0], '-m', __spec__.name, *sys.argv[1:])
-        # won't work because modules don't have the exec bit set
-        # os.execl(*sys.argv)
-        # won't work because argument will be (mis-) interpreted by the python executable itself
-        # os.execlp('python', *sys.argv)
+        fast_forward(args.fast_forward, __spec__)
