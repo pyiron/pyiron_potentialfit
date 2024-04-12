@@ -404,11 +404,11 @@ class ARStructureContainer:
                 "Structure identifiers must not contain '/'. "
                 "Use .structure_file_path to use existing POSCAR files"
             )
-
-    def write_xml_file(self, directory, name="structures.xml"):
+        
+    def write_xml_with_poscars(self, directory, name="structures.xml",):
         """
-        Internal helper function that writes an atomicrex style
-        xml file containg all structures.
+        Internal helper function that writes an atomicrex structure input 
+        with POSCAR format structures. Not recommended normally.
 
         Args:
             directory (string): Working directory.
@@ -417,6 +417,7 @@ class ARStructureContainer:
         self._check_identifiers()
         self._shrink()
         root = ET.Element("group")
+        ### using poscar format. Not recommended normally.
         if self.structure_file_path is None and "atomic-forces" in self.fit_properties:
             # write POSCARs
             for i in range(self._structures.num_chunks):
@@ -426,6 +427,15 @@ class ARStructureContainer:
                     "target_val"
                 ][vec_start:vec_end]
                 if not self._structures._per_chunk_arrays["predefined"][i]:
+                    struct_xml = structure_meta_xml(
+                        identifier=self._structures.identifier[i],
+                        forces=forces,
+                        positions=self._structures.positions[vec_start:vec_end],
+                        symbols=self._structures.symbols[vec_start:vec_end],
+                        cell=self._structures.cell[i],
+                        directory=directory,
+                    )
+
                     write_modified_poscar(
                         identifier=self._structures.identifier[i],
                         forces=forces,
@@ -438,7 +448,7 @@ class ARStructureContainer:
                 # else:
                 #    if not np.all(np.isnan(forces)):
 
-        # write xml
+        # write meta xml for poscars
         for i in range(self._structures.num_chunks):
             fit_properties_xml = ET.Element("properties")
             if not self._structures._per_chunk_arrays["predefined"][i]:
@@ -476,6 +486,75 @@ class ARStructureContainer:
             root.append(struct_xml)
         filename = posixpath.join(directory, name)
         write_pretty_xml(root, filename)
+    
+    def write_xml_file(self, directory, name="structures.xml", use_poscars=False):
+        """
+        Internal helper function that writes an atomicrex style
+        xml file containg all structures.
+
+        Args:
+            directory (string): Working directory.
+            name (str, optional): Defaults to "structures.xml".
+            use_poscars(bool, optional): whether to use poscars. Not recommneded anymore.
+        """
+        self._check_identifiers()
+        self._shrink()
+        root = ET.Element("group")
+        for i in range(self._structures.num_chunks):
+            fit_properties_xml = ET.Element("properties")
+            if not self._structures._per_chunk_arrays["predefined"][i]:
+                for prop, flat_prop in self.fit_properties.items():
+                    if not prop in ("lattice-parameter", "ca-ratio"):
+                        fit_properties_xml.append(flat_prop.to_xml_element(i, prop))
+                
+                vec_start = self._structures.start_index[i]
+                vec_end = self._structures.start_index[i] + self._structures.length[i]
+                forces = self.fit_properties["atomic-forces"]._per_element_arrays[
+                    "target_val"
+                ][vec_start:vec_end]
+
+                struct_xml = user_structure_xml(
+                    identifier=self._structures.identifier[i],
+                    relative_weight=self._structures._per_chunk_arrays[
+                        "relative_weight"
+                    ][i],
+                    pbc=self._structures.pbc[i],
+                    forces=forces,
+                    positions=self._structures.positions[vec_start:vec_end],
+                    symbols=self._structures.symbols[vec_start:vec_end],
+                    cell=self._structures.cell[i],
+                    clamp=self._structures._per_chunk_arrays["clamp"][i],
+                    fit_properties=fit_properties_xml,
+                    struct_file_path=self.structure_file_path,
+                    fit=self._structures._per_chunk_arrays["fit"][i],
+                )
+
+            else:
+                for prop, flat_prop in self.fit_properties.items():
+                    fit_properties_xml.append(flat_prop.to_xml_element(i, prop))
+
+                data = self._predefined_storage[self._structures.identifier[i]]
+                struct_xml = predefined_structure_xml(
+                    identifier=self._structures.identifier[i],
+                    lattice=data["lattice"],
+                    lattice_param=data["lattice_parameter"],
+                    ca_ratio=data["ca_ratio"],
+                    atom_type_A=data["atom_type_A"],
+                    atom_type_B=data["atom_type_B"],
+                    relative_weight=self._structures._per_chunk_arrays[
+                        "relative_weight"
+                    ][i],
+                    clamp=self._structures._per_chunk_arrays["clamp"][i],
+                    fit_properties=fit_properties_xml,
+                    fit=self._structures._per_chunk_arrays["fit"][i],
+                )
+                
+            root.append(struct_xml)
+        filename = posixpath.join(directory, name)
+        write_pretty_xml(root, filename)
+
+
+
 
     def _parse_final_properties(self, struct_lines):
         """
@@ -619,42 +698,6 @@ class ARStructureContainer:
         return self.get_predicted_data()
 
 
-### This is probably useless like this in most cases because forces can't be passed.
-def user_structure_to_xml_element(structure):
-    """
-    Converts an ase/pyiron atoms object to an atomicrex xml element
-    Right now forces can't be passed in the xml file, so this is not really helpful.
-    Args:
-        structure (Atoms): ase or pyiron Atoms
-
-    Returns:
-        (ET.Element, ET.Element): atomicrex structure xml
-    """
-    pbc = ET.Element("pbc")
-    pbc.set("x", f"{structure.pbc[0]}".lower())
-    pbc.set("y", f"{structure.pbc[1]}".lower())
-    pbc.set("z", f"{structure.pbc[2]}".lower())
-
-    c = structure.cell
-    cell = ET.Element("cell")
-    for i in range(3):
-        a = ET.SubElement(cell, f"a{i+1}")
-        a.set("x", f"{c[i][0]}")
-        a.set("y", f"{c[i][1]}")
-        a.set("z", f"{c[i][2]}")
-
-    atoms = ET.SubElement(cell, "atoms")
-    for at in structure:
-        a = ET.SubElement(atoms, "atom")
-        a.set("type", at.symbol)
-        a.set("x", f"{at.a}")
-        a.set("y", f"{at.b}")
-        a.set("z", f"{at.c}")
-        a.set("reduced", "false")
-
-    return pbc, cell
-
-
 def write_modified_poscar(
     identifier,
     forces,
@@ -796,6 +839,50 @@ def structure_meta_xml(
     else:
         struct_xml.append(fit_properties)
     return struct_xml
+
+
+def user_structure_xml(identifier, fit_properties, pbc, cell, positions, symbols, forces=None, fit=True,relative_weight=1, clamp=True,):
+
+    struct_xml = structure_meta_xml(
+        identifier=identifier,
+        relative_weight=relative_weight,
+        clamp=clamp,
+        fit_properties=fit_properties,
+        fit=fit,
+        mod_poscar=False,
+    )
+
+    pbc = ET.SubElement(struct_xml, "pbc")
+    pbc.set("x", f"{pbc[0]}".lower())
+    pbc.set("y", f"{pbc[1]}".lower())
+    pbc.set("z", f"{pbc[2]}".lower())
+
+    xmlcell = ET.SubElement(struct_xml, "cell")
+    for i in range(3):
+        a = ET.SubElement(xmlcell, f"a{i+1}")
+        a.set("x", f"{cell[i][0]}")
+        a.set("y", f"{cell[i][1]}")
+        a.set("z", f"{cell[i][2]}")
+
+    xmlatoms = ET.SubElement(xmlcell, "atoms")
+    for sym, pos in zip(symbols, positions):
+        a = ET.SubElement(xmlatoms, "atom")
+        a.set("type", sym)
+        a.set("x", f"{pos[0]}")
+        a.set("y", f"{pos[1]}")
+        a.set("z", f"{pos[2]}")
+        a.set("reduced", "false")
+
+    if forces is not None:
+        idx = 0
+        xmlforces = ET.SubElement(struct_xml, 'atomic-forces')
+        for f in forces:
+            xmlf = ET.SubElement(xmlatoms, "force")
+            xmlf.set("x", f"{f[0]}")
+            xmlf.set("y", f"{f[1]}")
+            xmlf.set("z", f"{f[2]}")
+
+    return pbc, cell
 
 
 def predefined_structure_xml(
