@@ -875,7 +875,7 @@ def user_structure_xml(identifier, fit_properties, pbc, cell, positions, symbols
             xmlf.set("x", f"{f[0]}")
             xmlf.set("y", f"{f[1]}")
             xmlf.set("z", f"{f[2]}")
-            xmlf.set("i", f"{f[idx]}")
+            xmlf.set("i", f"{idx}")
             idx+=1
 
     return struct_xml
