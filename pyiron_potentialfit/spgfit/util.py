@@ -6,7 +6,7 @@ import os
 
 import numpy as np
 
-from pyiron_base import Project
+from pyiron_base import Project, GenericParameters
 
 # Extracted from Vasp PBE POTCARs (default valency)
 # (implicitly sorted by atomic number, important!)
@@ -124,6 +124,11 @@ def get_table(pr, table_name, add=None, delete_existing_job=False):
         add(tab)
         tab.run()
         return tab
+
+def read_generic_parameters(hdf, key):
+    gp = GenericParameters(table_name="data_dict")
+    gp.from_hdf(hdf)
+    return gp[key]
 
 SYMLINK_TARGET = os.getenv('SPGFIT_SYMLINK_TARGET', default='/cmmc/ptmp')
 

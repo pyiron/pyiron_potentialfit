@@ -11,7 +11,7 @@ from typing import (
         List as TList,
         Optional
 )
-from logging import getLogger
+from logging import getLogger, INFO
 from functools import lru_cache
 
 from pyiron_base import DataContainer
@@ -242,7 +242,7 @@ class ProjectFlow(HasHDF, abc.ABC):
     # Supports training data workflows
     # this should be much better integrated with run as it would be useful also
     # for the verification flows (not in this repository yet), but
-    # I'd like to play it safe and not moidfy both at the same time.
+    # I'd like to play it safe and not modify both at the same time.
 
     def considered_empty(self):
         return len(self.project.job_table()) == 0
@@ -282,6 +282,7 @@ class ProjectFlow(HasHDF, abc.ABC):
         tried to be repaired with HandyMan.
         """
         logger = getLogger()
+        logger.setLevel(INFO)
 
         if self.considered_empty() or config.delete_existing_job:
             logger.info('empty project, running from scratch')

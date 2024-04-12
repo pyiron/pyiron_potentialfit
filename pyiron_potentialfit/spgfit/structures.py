@@ -1,7 +1,8 @@
 from dataclasses import dataclass, asdict
 from io import StringIO
 from pprint import pprint
-from logging import getLogger
+from logging import getLogger, INFO
+getLogger().setLevel(INFO)
 logger = getLogger("structures")
 from typing import Iterable, Optional, Tuple, List
 from random import choices
@@ -32,7 +33,7 @@ from .projectflow import (
         RunAgain,
         WorkflowProjectConfig,
 )
-from .util import RCORE
+from .util import RCORE, DistanceFilter
 
 from pyiron_contrib.jobfactories import VaspFactory
 from pyiron_contrib.repair import HandyMan
@@ -172,22 +173,11 @@ class MinimizeVaspFlow(ProjectFlow):
 
     Input = MinimizeVaspInput
 
-    # structures = fluxflow.StructureProperty('structures')
-    # degrees_of_freedom = fluxflow.ScalarProperty(
-    #         'degrees_of_freedom',
-    #         # type=Literal['volume', 'cell', 'internal'],
-    # )
-    # encut = fluxflow.ScalarProperty('encut')
-    # kspacing = fluxflow.ScalarProperty('kspacing')
-    # cores = fluxflow.ScalarProperty('cores', default=20)
-    # run_time = fluxflow.ScalarProperty('run_time', default=10 * 60 * 60)
-    # use_symmetry = fluxflow.ScalarProperty('use_symmetry', default=False)
-
     def _run(self, delete_existing_job=False, delete_aborted_job=True):
-        # sflow = StructureProjectFlow(self.project, "structures")
         sflow = StructureProjectFlow()
 
         vasp = VaspFactory()
+        # AlH specific hack, VaspFactory ignores this for other structures automatically
         vasp.enable_nband_hack({
             "Al": 2, # = 3/2 + 1/2 VASP default
             "H": 2
@@ -196,7 +186,8 @@ class MinimizeVaspFlow(ProjectFlow):
         vasp.incar['EDIFF'] = 1e-6
         if not self.input.use_symmetry:
             vasp.incar['ISYM'] = 0
-        vasp.set_encut(self.input.encut)
+        if self.input.encut is not None:
+            vasp.set_encut(self.input.encut)
         vasp.cores = self.input.cores
         vasp.run_time = self.input.run_time
         vasp.queue = 'cmti'
@@ -244,34 +235,22 @@ class MinimizeVaspFlow(ProjectFlow):
                     convert_to_object=False
             )
 
-        if number_of_structures == 1:
-            for j in jobs:
-                s = extract_structure(j, -1)
+        for j in jobs:
+            N = len(j['output/generic/steps'])
+            stride = max(N // number_of_structures, 1)
+            for i in range(1, N + 1, stride)[:number_of_structures]:
+                s = extract_structure(j, -i)
                 if min_dist is not None \
                         and np.prod ( s.get_neighbors(cutoff_radius=min_dist).distances.shape ) > 0:
                     continue
+                if number_of_structures == 1:
+                    name = j.name
+                else:
+                    name = f'{j.name}_step_{i}'
                 cont.add_structure(
-                        s,
-                        identifier=j.name,
-                        job_id=j.id, step=0
+                        s, identifier=name,
+                        job_id=j.id, step=i
                 )
-        else:
-            for j in jobs:
-                try:
-                    N = len(j['output/generic/steps'])
-                except:
-                    breakpoint()
-                stride = max(N // number_of_structures, 1)
-                for i in range(1, N + 1, stride):
-                    s = extract_structure(j, -i)
-                    if min_dist is not None \
-                            and np.prod ( s.get_neighbors(cutoff_radius=min_dist).distances.shape ) > 0:
-                        continue
-                    cont.add_structure(
-                            s,
-                            identifier=f'{j.name}_step_{i}',
-                            job_id=j.id, step=i
-                    )
         cont.run()
         return cont
 
@@ -322,7 +301,7 @@ class TrainingDataConfig:
     min_dist: float = None
     delete_existing_job: bool = False
 
-def create_structure_set(pr, state, conf):
+def create_structure_set(pr, state, conf, fast_forward=False):
     logger = getLogger('structures')
     buf = StringIO('')
     pprint(asdict(conf), stream=buf)
@@ -336,7 +315,8 @@ def create_structure_set(pr, state, conf):
                 delete_existing_job=conf.delete_existing_job
         )
         state = 'volmin'
-        return state
+        if not fast_forward:
+            return state
     if state == 'volmin':
         try:
             cont = pr['containers'].load(f'{conf.name}')
@@ -345,7 +325,8 @@ def create_structure_set(pr, state, conf):
         except RunAgain:
             return state
         state = 'allmin'
-        return state
+        if not fast_forward:
+            return state
     if state == 'allmin':
         try:
             cont = pr['containers'].load(f'{conf.name}VolMin')
@@ -354,7 +335,8 @@ def create_structure_set(pr, state, conf):
         except RunAgain:
             return state
         state = 'random'
-        return state
+        if not fast_forward:
+            return state
     if state == 'random':
         cont = pr['containers'].load(f'{conf.name}VolMinAllMin')
         rattle(
@@ -468,8 +450,15 @@ def _pyxtal(
                         break
                     else:
                         raise ValueError(f"Symmetry group {g} incompatible with stoichiometry {stoich}!") from None
+                # some structures come out with really weird cell shapes, especially with low number of atoms
+                # get the primitive cell as per spglib to "normalize" that a bit
+                # at the same time we do *not* want to reduce the size of the cells, because having a few larger super
+                # cells will allow us to sample their displacements a bit more
+                ps = s.get_symmetry().get_primitive_cell()
+                if len(ps) == len(s):
+                    s = ps
                 storage.add_structure(
-                    generate(g),
+                    s,
                     identifier=f"{stoich}_{g}_{i}",
                     symmetry=g,
                     repeat=i
@@ -498,21 +487,27 @@ def spg(pr, elements, max_atoms, stoichiometry, name="Crystals", min_dist=None,
         tm = Tol_matrix.from_radii([ 2*r for r in RCORE.values() ])
     stoichs = [ni for ni in product(stoichiometry, repeat=len(elements)) if sum(ni) <= max_atoms]
     if len(stoichs) == 0:
-        breakpoint()
-    for num_ions in tqdm(stoichs, desc="Structure Size"):
+        logger.critical(f"No valid stoichiometries for {elements}, {stoichiometry} <= {max_atoms}!")
+    for num_ions in (bar := tqdm(stoichs)):
+        if sum(num_ions) == 0: continue
+        stoich = "".join(f"{s}{n}" for s, n in zip(elements, num_ions))
+        bar.set_description(f"Stoichiometry {stoich}")
         def check_cell_shape(structure):
             # Want to avoid structures that are very long but narrow
             # vecs = np.linalg.norm(structure.cell.array, axis=-1)
             vecs = structure.cell.lengths()
             return vecs.max() / vecs.min() < 6
+        # very few structures with low distances seem to slip through pyxtals checks, so double check here
+        distance_filter = DistanceFilter()
+        el, ni = zip(*( (el,ni) for el, ni in zip(elements, num_ions) if ni > 0))
         # missing checker support
         # pr.create.structure.pyxtal(
         _pyxtal(
                 range(1,230+1),
-                species=elements,
-                num_ions=num_ions,
+                species=el,
+                num_ions=ni,
                 storage=store,
-                checker=check_cell_shape,
+                checker=lambda s: check_cell_shape(s) and distance_filter(s),
                 factor=1.5,
                 tm=tm
         )
@@ -540,10 +535,9 @@ def minimize(pr, cont: StructureContainer, degrees_of_freedom, trace, min_dist,
             flow.input.unlock()
         flow.input.structures = cont._container.copy()
         flow.input.kspacing = 0.5
-        flow.input.encut = 300
         flow.input.degrees_of_freedom = degrees_of_freedom
         flow.input.cores = 10
-        flow.input.run_time = 60 * 60
+        flow.input.run_time = 5 * 60
         flow.run(delete_existing_job=delete_existing_job)
         raise RunAgain("Just starting!")
 
@@ -735,10 +729,8 @@ if __name__ == '__main__':
             help='Retry the current step from scratch'
     )
     args = parser.parse_args()
-    print(args.min_dist)
 
     pr = Project(args.project)
-    fast_forward = args.fast_forward
     conf = vars(args).copy()
     conf['rattle_disp'], conf['rattle_strain'] = conf['rattle']
     conf['stretch_hydro'], conf['stretch_shear'] = conf['stretch']
@@ -750,17 +742,15 @@ if __name__ == '__main__':
     conf = TrainingDataConfig(**conf)
 
     state = pr.data.get('state', 'spg')
-    old_conf = pr.data.get('config', {})
-    for k, v in old_conf.items():
-        setattr(conf, k, v)
+    # old_conf = pr.data.get('config', {})
+    # for k, v in old_conf.items():
+    #     setattr(conf, k, v)
     pr.data.config = asdict(conf)
     pr.data.write()
 
-    state = create_structure_set(pr, state, conf)
+    state = create_structure_set(pr, state, conf, args.fast_forward is not None)
     pr.data.state = state
     pr.data.write()
-    print(fast_forward, vars(args))
-    args.fast_forward = fast_forward
     if state != "finished" and args.fast_forward is not None:
         print("Fast forward in", args.fast_forward, "...")
         # restarting the script instead of looping in python means I can edit the files while they run.  *Nothing*
