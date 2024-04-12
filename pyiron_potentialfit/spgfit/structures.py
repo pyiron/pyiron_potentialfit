@@ -662,7 +662,7 @@ fitting results for a whole structure set.
 [1]: https://journals.aps.org/prb/abstract/10.1103/PhysRevB.107.104103
 """
 
-if __name__ == '__main__':
+def main():
     import warnings
     warnings.filterwarnings(
             'ignore',
@@ -753,3 +753,6 @@ if __name__ == '__main__':
     pr.data.write()
     if state != "finished" and args.fast_forward is not None:
         fast_forward(args.fast_forward, __spec__)
+
+if __name__ == '__main__':
+    main()

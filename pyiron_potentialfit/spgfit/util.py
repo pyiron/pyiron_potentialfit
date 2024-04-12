@@ -132,7 +132,6 @@ def read_generic_parameters(hdf, key):
 
 def fast_forward(timeout, spec):
     print("Fast forward in", timeout, "...")
-    print(spec, __spec__)
     # restarting the script instead of looping in python means I can edit the files while they run.  *Nothing*
     # could possibly go wrong and it's convenient!
     import time, sys, os

@@ -340,7 +340,7 @@ restart the fit from the first solution.  This sometimes leads to better trainin
 your own testing.
 """
 
-if __name__ == '__main__':
+def main():
     from argparse import ArgumentParser, RawDescriptionHelpFormatter
 
     parser = ArgumentParser(
@@ -410,3 +410,6 @@ if __name__ == '__main__':
                 force_weight=args.force_weight,
                 stress_weight=args.stress_weight,
         )
+
+if __name__ == '__main__':
+    main()

@@ -42,4 +42,11 @@ setup(
         'dill'
     ],
     cmdclass=versioneer.get_cmdclass(),
+    entry_points={
+        "console_scripts": [
+            "spgfit-structures = pyiron_potentialfit.spgfit.structures:main",
+            "spgfit-calculations = pyiron_potentialfit.spgfit.calculations:main",
+            "spgfit-learn = pyiron_potentialfit.spgfit.learn:main"
+        ]
+    }
 )

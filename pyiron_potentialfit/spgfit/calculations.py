@@ -270,7 +270,7 @@ The default k point and encut values are converged for the Mg/Al/Ca system.  Do 
 potfit.convergence how to go about it.
 """
 
-if __name__ == '__main__':
+def main():
     parser = ArgumentParser(
             description='Creating training data for an MLIP',
             epilog=epilog,
@@ -382,3 +382,6 @@ if __name__ == '__main__':
                         delete_existing_job=args.delete_existing_job)
     elif args.fast_forward is not None:
         fast_forward(args.fast_forward, __spec__)
+
+if __name__ == '__main__':
+    main()
