@@ -877,10 +877,11 @@ def user_structure_xml(identifier, fit_properties, pbc, cell, positions, symbols
         idx = 0
         xmlforces = ET.SubElement(struct_xml, 'atomic-forces')
         for f in forces:
-            xmlf = ET.SubElement(xmlatoms, "force")
+            xmlf = ET.SubElement(xmlforces, "force")
             xmlf.set("x", f"{f[0]}")
             xmlf.set("y", f"{f[1]}")
             xmlf.set("z", f"{f[2]}")
+            idx+=1
 
     return pbc, cell
 
