@@ -877,7 +877,7 @@ def user_structure_xml(identifier, fit_properties, pbc, cell, positions, symbols
             xmlf.set("z", f"{f[2]}")
             idx+=1
 
-    return pbc, cell
+    return struct_xml
 
 
 def predefined_structure_xml(
