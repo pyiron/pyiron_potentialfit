@@ -525,7 +525,6 @@ class ARStructureContainer:
                     cell=self._structures.cell[i],
                     clamp=self._structures._per_chunk_arrays["clamp"][i],
                     fit_properties=fit_properties_xml,
-                    struct_file_path=self.structure_file_path,
                     fit=self._structures._per_chunk_arrays["fit"][i],
                 )
 
