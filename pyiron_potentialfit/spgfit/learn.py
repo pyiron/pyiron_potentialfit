@@ -7,6 +7,7 @@ from pyiron_potentialfit.atomistics.job.trainingcontainer import TrainingContain
 from typing import Iterable, Union
 
 import matplotlib.pyplot as plt
+import seaborn as sns
 import numpy as np
 from tqdm.auto import tqdm
 

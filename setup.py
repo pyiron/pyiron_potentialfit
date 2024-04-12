@@ -38,6 +38,7 @@ setup(
         'scipy==1.11.4',
         'runnerase==0.3.3',
         # spgfit
+        'seaborn',
         'dill'
     ],
     cmdclass=versioneer.get_cmdclass(),
