@@ -3,6 +3,7 @@ from enum import Enum
 from io import StringIO
 from pprint import pprint
 from logging import getLogger, INFO
+
 getLogger().setLevel(INFO)
 logger = getLogger("structures")
 from typing import Iterable, Optional, Tuple, List
@@ -27,17 +28,18 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from .projectflow import (
-        ProjectFlow,
-        StructureProjectFlow,
-        Input,
-        Output,
-        RunAgain,
-        WorkflowProjectConfig,
+    ProjectFlow,
+    StructureProjectFlow,
+    Input,
+    Output,
+    RunAgain,
+    WorkflowProjectConfig,
 )
 from .util import RCORE, DistanceFilter, fast_forward
 
 from pyiron_contrib.jobfactories import VaspFactory
 from pyiron_contrib.repair import HandyMan
+
 
 def shake(displacement=0.1):
     """
@@ -46,12 +48,15 @@ def shake(displacement=0.1):
     Args:
         displacement (float): standard deviation of atomic displacement
     """
+
     def mod(structure):
-        structure.positions += \
-                np.random.normal(scale=displacement,
-                                 size=structure.positions.shape)
+        structure.positions += np.random.normal(
+            scale=displacement, size=structure.positions.shape
+        )
         return structure
+
     return mod
+
 
 def stretch(hydro: float = 0.05, shear: float = 0.005):
     """
@@ -64,17 +69,21 @@ def stretch(hydro: float = 0.05, shear: float = 0.005):
         hydro (float): Maximum strain along normal axes
         shear (float): Maximum strain along shear axes
     """
+
     def mod(structure):
         E = shear * (2 * np.random.rand(3, 3) - 1)
-        E = 0.5 * (E + E.T) # symmetrize
-        np.fill_diagonal(E, hydro * (2*np.random.rand(3) - 1))
+        E = 0.5 * (E + E.T)  # symmetrize
+        np.fill_diagonal(E, hydro * (2 * np.random.rand(3) - 1))
         structure.apply_strain(E)
         return structure
+
     return mod
+
 
 def transmute(elems, conc, mask=None):
     if len(elems) != 2:
-        raise ValueError('elems must contain two elements')
+        raise ValueError("elems must contain two elements")
+
     def mod(structure):
         if mask is not None:
             indices = np.argwhere(mask(structure)).T[0]
@@ -88,20 +97,25 @@ def transmute(elems, conc, mask=None):
         for i in indices[c:]:
             structure[i] = elems[1]
         return structure
+
     return mod
 
-def fill_container(source: HasStructure, sink: StructureContainer,
-                   repetitions: int=4, combine: int=1,
-                   modifiers=( (0.5, shake()), (0.5, stretch()) ),
-                   min_dist=None):
+
+def fill_container(
+    source: HasStructure,
+    sink: StructureContainer,
+    repetitions: int = 4,
+    combine: int = 1,
+    modifiers=((0.5, shake()), (0.5, stretch())),
+    min_dist=None,
+):
     """
     Fill a container with new structures.
 
-    Iterates over all structures in `source` 
+    Iterates over all structures in `source`
     """
     ps, mods = zip(*modifiers)
-    for structure in tqdm(source.iter_structures(),
-                          total=source.number_of_structures):
+    for structure in tqdm(source.iter_structures(), total=source.number_of_structures):
         for _ in range(repetitions):
             for i in range(10):
                 s = structure.copy()
@@ -114,16 +128,19 @@ def fill_container(source: HasStructure, sink: StructureContainer,
                     sd = s.repeat(2)
                     sd.pbc = [False, False, False]
                     dist = sd.get_neighbors(
-                            num_neighbors=1,
-                            cutoff_radius=2*min_dist
+                        num_neighbors=1, cutoff_radius=2 * min_dist
                     ).distances
                     if (dist > min_dist).all():
                         sink.append(s)
                         break
             else:
-                print("WARN: Tried 10 times to find a structures, but "
-                      "min_dist is never satisfied.")
+                print(
+                    "WARN: Tried 10 times to find a structures, but "
+                    "min_dist is never satisfied."
+                )
     return sink
+
+
 def extract_structure(jobpath, frame):
     ii = jobpath["output/generic/indices"]
     if ii is not None:
@@ -139,28 +156,26 @@ def extract_structure(jobpath, frame):
         structure.indices[:] = indices
     else:
         structure = Atoms(
-                species=jobpath["input/structure/species"],
-                indices=indices,
-                positions=positions,
-                cell=cell,
-                pbc=jobpath["input/structure/cell/pbc"]
+            species=jobpath["input/structure/species"],
+            indices=indices,
+            positions=positions,
+            cell=cell,
+            pbc=jobpath["input/structure/cell/pbc"],
         )
     return structure
 
-from traitlets import (
-        Instance,
-        Float,
-        Bool,
-        Int,
-        CaselessStrEnum
-)
+
+from traitlets import Instance, Float, Bool, Int, CaselessStrEnum
+
 
 class MinimizeVaspInput(Input):
 
-    symlink = Bool(default_value=False, help='Whether to symlink the project or not')
+    symlink = Bool(default_value=False, help="Whether to symlink the project or not")
 
     structures = Instance(StructureStorage, args=())
-    degrees_of_freedom = CaselessStrEnum(values=["volume", "cell", "all", "internal"], default_value="volume")
+    degrees_of_freedom = CaselessStrEnum(
+        values=["volume", "cell", "all", "internal"], default_value="volume"
+    )
 
     encut = Float(default_value=None, allow_none=True)
     kspacing = Float(default_value=0.5)
@@ -179,19 +194,16 @@ class MinimizeVaspFlow(ProjectFlow):
 
         vasp = VaspFactory()
         # AlH specific hack, VaspFactory ignores this for other structures automatically
-        vasp.enable_nband_hack({
-            "Al": 2, # = 3/2 + 1/2 VASP default
-            "H": 2
-        })
-        vasp.incar['KSPACING'] = self.input.kspacing
-        vasp.incar['EDIFF'] = 1e-6
+        vasp.enable_nband_hack({"Al": 2, "H": 2})  # = 3/2 + 1/2 VASP default
+        vasp.incar["KSPACING"] = self.input.kspacing
+        vasp.incar["EDIFF"] = 1e-6
         if not self.input.use_symmetry:
-            vasp.incar['ISYM'] = 0
+            vasp.incar["ISYM"] = 0
         if self.input.encut is not None:
             vasp.set_encut(self.input.encut)
         vasp.cores = self.input.cores
         vasp.run_time = self.input.run_time
-        vasp.queue = 'cmti'
+        vasp.queue = "cmti"
 
         if self.input.degrees_of_freedom == "volume":
             vasp.minimize_volume()
@@ -200,7 +212,9 @@ class MinimizeVaspFlow(ProjectFlow):
         elif self.input.degrees_of_freedom == "internal":
             vasp.minimize_internal()
         else:
-            assert False, f"DoF cannot be {self.input.degrees_of_freedom}, traitlets broken?"
+            assert (
+                False
+            ), f"DoF cannot be {self.input.degrees_of_freedom}, traitlets broken?"
 
         sflow.input.job = vasp
         sflow.input.structures = self.input.structures.copy()
@@ -212,82 +226,81 @@ class MinimizeVaspFlow(ProjectFlow):
         # TODO: move both collects here and store structures in a custom Output
         pass
 
-    def collect(self,
-            name,
-            number_of_structures=1,
-            min_dist=None,
-            accept_not_converged=False,
-            delete_existing_job=False
+    def collect(
+        self,
+        name,
+        number_of_structures=1,
+        min_dist=None,
+        accept_not_converged=False,
+        delete_existing_job=False,
     ) -> StructureContainer:
-        cont = self.project.create.job.StructureContainer(name,
-                delete_existing_job=delete_existing_job,
-                delete_aborted_job=True)
+        cont = self.project.create.job.StructureContainer(
+            name, delete_existing_job=delete_existing_job, delete_aborted_job=True
+        )
         if cont.status.finished:
             return cont
 
         if accept_not_converged:
-            df = self.project.job_table(hamilton='Vasp')
+            df = self.project.job_table(hamilton="Vasp")
             df = df.query("status.isin(['finished', 'not_converged', 'warning'])")
             jobs = map(self.project.inspect, tqdm(df.id))
         else:
             jobs = self.project.iter_jobs(
-                    hamilton='Vasp',
-                    status='finished',
-                    convert_to_object=False
+                hamilton="Vasp", status="finished", convert_to_object=False
             )
 
         for j in jobs:
-            N = len(j['output/generic/steps'])
+            N = len(j["output/generic/steps"])
             stride = max(N // number_of_structures, 1)
             for i in range(1, N + 1, stride)[:number_of_structures]:
                 s = extract_structure(j, -i)
-                if min_dist is not None \
-                        and np.prod ( s.get_neighbors(cutoff_radius=min_dist).distances.shape ) > 0:
+                if (
+                    min_dist is not None
+                    and np.prod(s.get_neighbors(cutoff_radius=min_dist).distances.shape)
+                    > 0
+                ):
                     continue
                 if number_of_structures == 1:
                     name = j.name
                 else:
-                    name = f'{j.name}_step_{i}'
-                cont.add_structure(
-                        s, identifier=name,
-                        job_id=j.id, step=i
-                )
+                    name = f"{j.name}_step_{i}"
+                cont.add_structure(s, identifier=name, job_id=j.id, step=i)
         cont.run()
         return cont
 
-    def collect_training(self,
-            name,
-            min_dist=None,
-            delete_existing_job=False
+    def collect_training(
+        self, name, min_dist=None, delete_existing_job=False
     ) -> TrainingContainer:
-        cont = self.project.create.job.TrainingContainer(name,
-                delete_existing_job=delete_existing_job,
-                delete_aborted_job=True)
+        cont = self.project.create.job.TrainingContainer(
+            name, delete_existing_job=delete_existing_job, delete_aborted_job=True
+        )
         if not cont.status.initialized:
             return cont
 
         cont.input.save_neighbors = False
 
         jobs = self.project.iter_jobs(
-                hamilton='Vasp',
-                status='finished',
-                convert_to_object=False
+            hamilton="Vasp", status="finished", convert_to_object=False
         )
 
         for j in jobs:
             s = extract_structure(j, -1)
-            if min_dist is not None \
-                    and np.prod ( s.get_neighbors(cutoff_radius=min_dist).distances.shape ) > 0:
+            if (
+                min_dist is not None
+                and np.prod(s.get_neighbors(cutoff_radius=min_dist).distances.shape) > 0
+            ):
                 continue
             cont.include_job(j)
         cont.run()
         return cont
+
 
 @dataclass
 class TrainingDataConfig:
     def __post_init__(self):
         if self.stoichiometry is None:
             self.stoichiometry = list(range(1, self.max_atoms + 1))
+
     elements: List[str]
     name: str
     max_atoms: int = 10
@@ -302,22 +315,24 @@ class TrainingDataConfig:
     min_dist: float = None
     delete_existing_job: bool = False
 
+
 class State(Enum):
     """
     The current state of the structure generation.
     """
 
-    SPG = 'spg'
-    VOLMIN = 'volmin'
-    ALLMIN = 'allmin'
-    RANDOM = 'random'
-    FINISHED = 'finished'
+    SPG = "spg"
+    VOLMIN = "volmin"
+    ALLMIN = "allmin"
+    RANDOM = "random"
+    FINISHED = "finished"
+
 
 def create_structure_set(
-        pr: Project,
-        state: Union[str, State],
-        conf: TrainingDataConfig,
-        fast_forward: bool=False
+    pr: Project,
+    state: Union[str, State],
+    conf: TrainingDataConfig,
+    fast_forward: bool = False,
 ) -> State:
     """
     Create a new structure set for training.
@@ -332,26 +347,35 @@ def create_structure_set(
         this function again after some time until it is.
     """
     state = State(state)
-    logger = getLogger('structures')
-    buf = StringIO('')
+    logger = getLogger("structures")
+    buf = StringIO("")
     pprint(asdict(conf), stream=buf)
-    logger.info('config: %s', buf.getvalue())
-    logger.info('current state: %s', state.value)
+    logger.info("config: %s", buf.getvalue())
+    logger.info("current state: %s", state.value)
     if state == State.SPG:
         spg(
-                pr.create_group('containers'),
-                conf.elements, conf.max_atoms, conf.stoichiometry,
-                name=conf.name, min_dist=conf.min_dist,
-                delete_existing_job=conf.delete_existing_job
+            pr.create_group("containers"),
+            conf.elements,
+            conf.max_atoms,
+            conf.stoichiometry,
+            name=conf.name,
+            min_dist=conf.min_dist,
+            delete_existing_job=conf.delete_existing_job,
         )
         state = State.VOLMIN
         if not fast_forward:
             return state
     if state == State.VOLMIN:
         try:
-            cont = pr['containers'].load(f'{conf.name}')
-            minimize(pr, cont, 'volume', conf.trace, conf.min_dist,
-                     delete_existing_job=conf.delete_existing_job)
+            cont = pr["containers"].load(f"{conf.name}")
+            minimize(
+                pr,
+                cont,
+                "volume",
+                conf.trace,
+                conf.min_dist,
+                delete_existing_job=conf.delete_existing_job,
+            )
         except RunAgain:
             return state
         state = State.ALLMIN
@@ -359,34 +383,45 @@ def create_structure_set(
             return state
     if state == State.ALLMIN:
         try:
-            cont = pr['containers'].load(f'{conf.name}VolMin')
-            minimize(pr, cont, 'all', conf.trace, conf.min_dist,
-                     delete_existing_job=conf.delete_existing_job)
+            cont = pr["containers"].load(f"{conf.name}VolMin")
+            minimize(
+                pr,
+                cont,
+                "all",
+                conf.trace,
+                conf.min_dist,
+                delete_existing_job=conf.delete_existing_job,
+            )
         except RunAgain:
             return state
         state = State.RANDOM
         if not fast_forward:
             return state
     if state == State.RANDOM:
-        cont = pr['containers'].load(f'{conf.name}VolMinAllMin')
+        cont = pr["containers"].load(f"{conf.name}VolMinAllMin")
         rattle(
-                pr['containers'],
-                cont,
-                conf.rattle_disp, conf.rattle_strain,
-                conf.rattle_repetitions,
-                conf.stretch_hydro, conf.stretch_shear,
-                conf.stretch_repetitions,
-                conf.min_dist,
-                delete_existing_job=conf.delete_existing_job
+            pr["containers"],
+            cont,
+            conf.rattle_disp,
+            conf.rattle_strain,
+            conf.rattle_repetitions,
+            conf.stretch_hydro,
+            conf.stretch_shear,
+            conf.stretch_repetitions,
+            conf.min_dist,
+            delete_existing_job=conf.delete_existing_job,
         )
         state = State.FINISHED
     return state
 
+
 from pyxtal import pyxtal
 from pyxtal.msg import Comp_CompatibilityError, VolumeError
 from pyxtal.tolerance import Tol_matrix
+
+
 def _pyxtal(
-    group: Union[int, List[int]], 
+    group: Union[int, List[int]],
     species: Tuple[str],
     num_ions: Tuple[int],
     dim=3,
@@ -394,7 +429,7 @@ def _pyxtal(
     storage=None,
     allow_exceptions=True,
     checker=lambda _: True,
-    **kwargs
+    **kwargs,
 ) -> Union[Atoms, StructureStorage]:
     """
     Generate random crystal structures with PyXtal.
@@ -424,25 +459,24 @@ def _pyxtal(
     Raises:
         ValueError: if stoichiometry and symmetry group are incompatible and allow_exceptions==False or only one structure is requested
     """
-    logger = getLogger('structures')
+    logger = getLogger("structures")
+
     def generate(group):
         s = pyxtal()
         factor = 1
         for _ in range(5):
             try:
                 s.from_random(
-                    dim=dim,
-                    group=group,
-                    species=species,
-                    numIons=num_ions,
-                    **kwargs
+                    dim=dim, group=group, species=species, numIons=num_ions, **kwargs
                 )
                 s = ase_to_pyiron(s.to_ase())
                 s.center_coordinates_in_unit_cell()
                 return s
             except RuntimeError as err:
                 if err.args[0] == "long time to generate structure, check inputs":
-                    logger.warn(f"pyxtal complained: {err.args} {factor} {dim} {group} {species} {num_ions}")
+                    logger.warn(
+                        f"pyxtal complained: {err.args} {factor} {dim} {group} {species} {num_ions}"
+                    )
                 if not err.args[0].startswith("Volume"):
                     raise
             except VolumeError:
@@ -451,7 +485,9 @@ def _pyxtal(
                 raise
             factor *= 1.5
         else:
-            raise RuntimeException("Failed to generate structure, aborted after factor: {factor}!")
+            raise RuntimeException(
+                "Failed to generate structure, aborted after factor: {factor}!"
+            )
 
     # return a single structure
     if repeat == 1 and isinstance(group, int):
@@ -468,7 +504,8 @@ def _pyxtal(
                 try:
                     for _ in range(5):
                         s = generate(g)
-                        if checker(s): break
+                        if checker(s):
+                            break
                     else:
                         logger.warn("Check failed 5 times in a row, skipping!")
                         continue
@@ -479,7 +516,9 @@ def _pyxtal(
                         failed_groups.append(g)
                         break
                     else:
-                        raise ValueError(f"Symmetry group {g} incompatible with stoichiometry {stoich}!") from None
+                        raise ValueError(
+                            f"Symmetry group {g} incompatible with stoichiometry {stoich}!"
+                        ) from None
                 # some structures come out with really weird cell shapes, especially with low number of atoms
                 # get the primitive cell as per spglib to "normalize" that a bit
                 # at the same time we do *not* want to reduce the size of the cells, because having a few larger super
@@ -488,23 +527,30 @@ def _pyxtal(
                 if len(ps) == len(s):
                     s = ps
                 storage.add_structure(
-                    s,
-                    identifier=f"{stoich}_{g}_{i}",
-                    symmetry=g,
-                    repeat=i
+                    s, identifier=f"{stoich}_{g}_{i}", symmetry=g, repeat=i
                 )
         if len(failed_groups) > 0:
             stoich = "".join(f"{s}{n}" for s, n in zip(species, num_ions))
-            logger.warning(f'Groups [{", ".join(map(str,failed_groups))}] could not be generated with stoichiometry {stoich}!') 
+            logger.warning(
+                f'Groups [{", ".join(map(str,failed_groups))}] could not be generated with stoichiometry {stoich}!'
+            )
         return storage
 
-def spg(pr, elements, max_atoms, stoichiometry, name="Crystals", min_dist=None,
-        delete_existing_job=False):
-    logger = getLogger('structures')
-    logger.info('Creating new structures for %s <= %i',
-                elements, max_atoms)
-    store = pr.create.job.StructureContainer(name,
-                                             delete_existing_job=delete_existing_job)
+
+def spg(
+    pr,
+    elements,
+    max_atoms,
+    stoichiometry,
+    name="Crystals",
+    min_dist=None,
+    delete_existing_job=False,
+):
+    logger = getLogger("structures")
+    logger.info("Creating new structures for %s <= %i", elements, max_atoms)
+    store = pr.create.job.StructureContainer(
+        name, delete_existing_job=delete_existing_job
+    )
     if store.status.finished:
         return store
 
@@ -514,53 +560,64 @@ def spg(pr, elements, max_atoms, stoichiometry, name="Crystals", min_dist=None,
         # function is called radii, but source code suggest it is actually used
         # to check the *distance* between to atom pairs, so we multiply by two
         # here (because the pair distance is made up from two radii)
-        tm = Tol_matrix.from_radii([ 2*r for r in RCORE.values() ])
-    stoichs = [ni for ni in product(stoichiometry, repeat=len(elements)) if sum(ni) <= max_atoms]
+        tm = Tol_matrix.from_radii([2 * r for r in RCORE.values()])
+    stoichs = [
+        ni
+        for ni in product(stoichiometry, repeat=len(elements))
+        if sum(ni) <= max_atoms
+    ]
     if len(stoichs) == 0:
-        logger.critical(f"No valid stoichiometries for {elements}, {stoichiometry} <= {max_atoms}!")
+        logger.critical(
+            f"No valid stoichiometries for {elements}, {stoichiometry} <= {max_atoms}!"
+        )
     for num_ions in (bar := tqdm(stoichs)):
-        if sum(num_ions) == 0: continue
+        if sum(num_ions) == 0:
+            continue
         stoich = "".join(f"{s}{n}" for s, n in zip(elements, num_ions))
         bar.set_description(f"Stoichiometry {stoich}")
+
         def check_cell_shape(structure):
             # Want to avoid structures that are very long but narrow
             # vecs = np.linalg.norm(structure.cell.array, axis=-1)
             vecs = structure.cell.lengths()
             return vecs.max() / vecs.min() < 6
+
         # very few structures with low distances seem to slip through pyxtals checks, so double check here
         distance_filter = DistanceFilter()
-        el, ni = zip(*( (el,ni) for el, ni in zip(elements, num_ions) if ni > 0))
+        el, ni = zip(*((el, ni) for el, ni in zip(elements, num_ions) if ni > 0))
         # missing checker support
         # pr.create.structure.pyxtal(
         _pyxtal(
-                range(1,230+1),
-                species=el,
-                num_ions=ni,
-                storage=store,
-                checker=lambda s: check_cell_shape(s) and distance_filter(s),
-                factor=1.5,
-                tm=tm
+            range(1, 230 + 1),
+            species=el,
+            num_ions=ni,
+            storage=store,
+            checker=lambda s: check_cell_shape(s) and distance_filter(s),
+            factor=1.5,
+            tm=tm,
         )
-    store['user/num_atoms'] = stoichiometry
+    store["user/num_atoms"] = stoichiometry
     store.run()
     return store
 
-def minimize(pr, cont: StructureContainer, degrees_of_freedom, trace, min_dist,
-             delete_existing_job=False):
-    logger = getLogger('structures')
-    logger.info('Minimizing structures: %s -> %s',
-                cont.name,
-                degrees_of_freedom)
-    n = {
-            'volume': 'VolMin',
-            'all': 'AllMin',
-            'cell': 'CellMin',
-            'internal': 'IntMin'
-    }[degrees_of_freedom]
-    minf = MinimizeVaspFlow(pr, f'{cont.name}{n}')
+
+def minimize(
+    pr,
+    cont: StructureContainer,
+    degrees_of_freedom,
+    trace,
+    min_dist,
+    delete_existing_job=False,
+):
+    logger = getLogger("structures")
+    logger.info("Minimizing structures: %s -> %s", cont.name, degrees_of_freedom)
+    n = {"volume": "VolMin", "all": "AllMin", "cell": "CellMin", "internal": "IntMin"}[
+        degrees_of_freedom
+    ]
+    minf = MinimizeVaspFlow(pr, f"{cont.name}{n}")
 
     def if_new(flow):
-        logger.info('starting from scratch')
+        logger.info("starting from scratch")
         if flow.input.read_only:
             flow.input.unlock()
         flow.input.structures = cont._container.copy()
@@ -572,80 +629,86 @@ def minimize(pr, cont: StructureContainer, degrees_of_freedom, trace, min_dist,
         raise RunAgain("Just starting!")
 
     def if_finished(flow):
-        logger.info('collecting structures')
+        logger.info("collecting structures")
         if trace > 1:
-            cont = pr['containers'].load(f'{flow.project.name}Trace')
+            cont = pr["containers"].load(f"{flow.project.name}Trace")
             if cont is None:
                 cont = flow.collect(
-                        'Trace',
-                        min_dist=min_dist,
-                        number_of_structures=trace,
-                        accept_not_converged=True,
+                    "Trace",
+                    min_dist=min_dist,
+                    number_of_structures=trace,
+                    accept_not_converged=True,
                 )
                 cont.copy_to(
-                        pr.create_group('containers'),
-                        new_job_name=f'{flow.project.name}Trace'
+                    pr.create_group("containers"),
+                    new_job_name=f"{flow.project.name}Trace",
                 )
-        cont = pr['containers'].load(flow.project.name)
+        cont = pr["containers"].load(flow.project.name)
         if cont is None:
             cont = flow.collect(
-                    'Final',
-                    min_dist=min_dist,
-                    number_of_structures=1,
-                    accept_not_converged=True,
+                "Final",
+                min_dist=min_dist,
+                number_of_structures=1,
+                accept_not_converged=True,
             )
-            cont.copy_to(
-                    pr.create_group('containers'),
-                    new_job_name=flow.project.name
-            )
+            cont.copy_to(pr.create_group("containers"), new_job_name=flow.project.name)
         return cont
 
-    config=WorkflowProjectConfig(
+    config = WorkflowProjectConfig(
         delete_existing_job=delete_existing_job,
         broken_threshold=0.1,
-        finished_threshold=0.9
+        finished_threshold=0.9,
     )
     return minf.check(config, if_new, if_finished)
 
-def rattle(pr, cont: StructureContainer,
-           rattle_disp, rattle_strain,
-           rattle_repetitions,
-           stretch_hydro, stretch_shear,
-           stretch_repetitions,
-           min_dist,
-           delete_existing_job=False
+
+def rattle(
+    pr,
+    cont: StructureContainer,
+    rattle_disp,
+    rattle_strain,
+    rattle_repetitions,
+    stretch_hydro,
+    stretch_shear,
+    stretch_repetitions,
+    min_dist,
+    delete_existing_job=False,
 ):
-    logger = getLogger('structures')
+    logger = getLogger("structures")
     logger.info("Creating rattle/stretch structures")
 
-    rand = pr.create.job.StructureContainer(f'{cont.name}Random', delete_existing_job=delete_existing_job)
+    rand = pr.create.job.StructureContainer(
+        f"{cont.name}Random", delete_existing_job=delete_existing_job
+    )
     if rand.status.initialized:
         N = 0
         fill_container(
-                cont._container.sample(lambda f, i: f['length', i] > 1),
-                rand, repetitions=rattle_repetitions, combine=2,
-                modifiers=(
-                    (1, shake(rattle_disp)),
-                    (1, stretch(rattle_strain))
-                ),
-                min_dist=min_dist,
+            cont._container.sample(lambda f, i: f["length", i] > 1),
+            rand,
+            repetitions=rattle_repetitions,
+            combine=2,
+            modifiers=((1, shake(rattle_disp)), (1, stretch(rattle_strain))),
+            min_dist=min_dist,
         )
-        logger.info('added %i rattle structures', rand.number_of_structures - N)
+        logger.info("added %i rattle structures", rand.number_of_structures - N)
         N = rand.number_of_structures
         fill_container(
-                cont._container,
-                rand, repetitions=stretch_repetitions, combine=1,
-                modifiers=(
-                    (0.7, stretch(hydro=stretch_hydro, shear=0.05)),
-                    (0.3, stretch(hydro=0.05, shear=stretch_shear))
-                ),
-                min_dist=min_dist,
+            cont._container,
+            rand,
+            repetitions=stretch_repetitions,
+            combine=1,
+            modifiers=(
+                (0.7, stretch(hydro=stretch_hydro, shear=0.05)),
+                (0.3, stretch(hydro=0.05, shear=stretch_shear)),
+            ),
+            min_dist=min_dist,
         )
-        logger.info('added %i stretch structures', rand.number_of_structures - N)
+        logger.info("added %i stretch structures", rand.number_of_structures - N)
         rand.run()
     return rand
 
-epilog="""
+
+epilog = """
 Follows the systematic approach reported in this paper[1].  Execution is
 organized in four steps:
 
@@ -692,86 +755,121 @@ fitting results for a whole structure set.
 [1]: https://journals.aps.org/prb/abstract/10.1103/PhysRevB.107.104103
 """
 
+
 def main():
     import warnings
+
     warnings.filterwarnings(
-            'ignore',
-            category=UserWarning,
-            message="'KSPACING' found in INCAR, no KPOINTS file written"
+        "ignore",
+        category=UserWarning,
+        message="'KSPACING' found in INCAR, no KPOINTS file written",
     )
 
     from argparse import ArgumentParser, RawDescriptionHelpFormatter
+
     parser = ArgumentParser(
-            description="Create structures for training data.",
-            epilog=epilog,
-            formatter_class=RawDescriptionHelpFormatter
+        description="Create structures for training data.",
+        epilog=epilog,
+        formatter_class=RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-            '-n', '--name', type=str, default='Crystals',
-            help='Base name of the structure containers'
+        "-n",
+        "--name",
+        type=str,
+        default="Crystals",
+        help="Base name of the structure containers",
     )
     parser.add_argument(
-            '-e', '--elements', type=str, nargs='+',
-            help='Chemical element to create structures for'
+        "-e",
+        "--elements",
+        type=str,
+        nargs="+",
+        help="Chemical element to create structures for",
     )
     parser.add_argument(
-            '-m', '--max-atoms', type=int, default=TrainingDataConfig.max_atoms,
-            help='Maximum number of atoms per structure'
+        "-m",
+        "--max-atoms",
+        type=int,
+        default=TrainingDataConfig.max_atoms,
+        help="Maximum number of atoms per structure",
     )
     parser.add_argument(
-            '-o', '--stoichiometry', type=int, nargs='*',
-            help='number of atoms of each element to combine'
+        "-o",
+        "--stoichiometry",
+        type=int,
+        nargs="*",
+        help="number of atoms of each element to combine",
     )
     parser.add_argument(
-            '-t', '--trace', type=int, default=TrainingDataConfig.trace,
-            help='Number of structures to include from each minimization step'
+        "-t",
+        "--trace",
+        type=int,
+        default=TrainingDataConfig.trace,
+        help="Number of structures to include from each minimization step",
     )
     parser.add_argument(
-            '-r', '--rattle', type=float, nargs=2, default=(TrainingDataConfig.rattle_disp, TrainingDataConfig.rattle_strain),
-            help='The displacement (in A) and tri-axial strain for the Rattle set'
+        "-r",
+        "--rattle",
+        type=float,
+        nargs=2,
+        default=(TrainingDataConfig.rattle_disp, TrainingDataConfig.rattle_strain),
+        help="The displacement (in A) and tri-axial strain for the Rattle set",
     )
     parser.add_argument(
-            '--rattle-repetitions', type=int, default=TrainingDataConfig.rattle_repetitions,
-            help='How many rattled structures to generate from each minimized structure'
+        "--rattle-repetitions",
+        type=int,
+        default=TrainingDataConfig.rattle_repetitions,
+        help="How many rattled structures to generate from each minimized structure",
     )
     parser.add_argument(
-            '-s', '--stretch', type=float, nargs=2, default=(TrainingDataConfig.stretch_hydro, TrainingDataConfig.stretch_shear),
-            help='The tri-axial and shear strains for the Stretch set'
+        "-s",
+        "--stretch",
+        type=float,
+        nargs=2,
+        default=(TrainingDataConfig.stretch_hydro, TrainingDataConfig.stretch_shear),
+        help="The tri-axial and shear strains for the Stretch set",
     )
     parser.add_argument(
-            '--stretch-repetitions', type=int, default=TrainingDataConfig.stretch_repetitions,
-            help='How many stretched structures to generate from each minimized structure'
+        "--stretch-repetitions",
+        type=int,
+        default=TrainingDataConfig.stretch_repetitions,
+        help="How many stretched structures to generate from each minimized structure",
     )
     parser.add_argument(
-            '-d', '--min-dist', type=float, default=None,
-            help='Smallest nearest neighbor distance to allow; default is taken from RCORE value of Vasp PBE pseudopotential files'
+        "-d",
+        "--min-dist",
+        type=float,
+        default=None,
+        help="Smallest nearest neighbor distance to allow; default is taken from RCORE value of Vasp PBE pseudopotential files",
     )
     parser.add_argument(
-            '-p', '--project', default='structures',
-            help='project to work in'
+        "-p", "--project", default="structures", help="project to work in"
     )
     parser.add_argument(
-            '--fast-forward', type=int, default=None,
-            help='Automatically go to the next step after sleeping for this many seconds'
+        "--fast-forward",
+        type=int,
+        default=None,
+        help="Automatically go to the next step after sleeping for this many seconds",
     )
     parser.add_argument(
-            '--delete-existing-job', action='store_true',
-            help='Retry the current step from scratch'
+        "--delete-existing-job",
+        action="store_true",
+        help="Retry the current step from scratch",
     )
     args = parser.parse_args()
 
     pr = Project(args.project)
     conf = vars(args).copy()
-    conf['rattle_disp'], conf['rattle_strain'] = conf['rattle']
-    conf['stretch_hydro'], conf['stretch_shear'] = conf['stretch']
-    del conf['rattle']
-    del conf['stretch']
-    del conf['project']
-    del conf['fast_forward']
+    conf["rattle_disp"], conf["rattle_strain"] = conf["rattle"]
+    conf["stretch_hydro"], conf["stretch_shear"] = conf["stretch"]
+    del conf["rattle"]
+    del conf["stretch"]
+    del conf["project"]
+    del conf["fast_forward"]
     conf = {k: v for k, v in conf.items() if v is not None}
     conf = TrainingDataConfig(**conf)
 
-    state = pr.data.get('state', 'spg')
+    state = pr.data.get("state", "spg")
     # old_conf = pr.data.get('config', {})
     # for k, v in old_conf.items():
     #     setattr(conf, k, v)
@@ -784,5 +882,6 @@ def main():
     if state != "finished" and args.fast_forward is not None:
         fast_forward(args.fast_forward, __spec__)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
