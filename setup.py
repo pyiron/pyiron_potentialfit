@@ -37,6 +37,16 @@ setup(
         'pyiron_base==0.7.9',
         'scipy==1.11.4',
         'runnerase==0.3.3',
+        # spgfit
+        'seaborn',
+        'dill'
     ],
     cmdclass=versioneer.get_cmdclass(),
+    entry_points={
+        "console_scripts": [
+            "spgfit-structures = pyiron_potentialfit.spgfit.structures:main",
+            "spgfit-calculations = pyiron_potentialfit.spgfit.calculations:main",
+            "spgfit-learn = pyiron_potentialfit.spgfit.learn:main"
+        ]
+    }
 )
