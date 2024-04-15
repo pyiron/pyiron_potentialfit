@@ -260,6 +260,18 @@ def energy_spread(j):
     return np.ptp(train.get_array('energy').ravel() / train.get_array('length'))
 
 def analyze(fit_pr: Project, delete_existing_job=False):
+    """
+    Collect error metrics on a project of fits.
+
+    Return MAE and RMSE of energies, forces and stresses for each fitted potential together with 
+
+    Args:
+        fit_pr (Project): project with Mlip jobs inside
+        delete_existing_job (bool): if True recreate pyiron table from scratch
+
+    Returns:
+        pandas.DataFrame: return data frame with error metrics
+    """
     def add(tab):
         tab.analysis_project = fit_pr
         tab.filter_function = tab.filter.job_type("Mlip")
@@ -327,9 +339,9 @@ def plot_error_vs_max_dist(df, logy=True, **kwargs):
 epilog="""
 We lay out the project like this,
 
-`root/calculations/containers`:   where we read the --containers from
-`root/fits`:                      work exlusively in this project
-`root/fits/{container_names}`:    working projects for each of the passed containers
+`root/training/containers`:     where we read the --containers from
+`root/fits`:                    work exlusively in this project
+`root/fits/{container_names}`:  working projects for each of the passed containers
 
 where `root` is the programs working directory and `container_names` what you passed as --containers.  For each given
 container a potential will be fit for all the combinations of --level, --rmin and --rmax in the respective project
@@ -367,7 +379,7 @@ def main():
             help='project to work in'
     )
     parser.add_argument(
-            '--calculations-project', default='calculations',
+            '--training-project', default='training',
             help='project that contains the training containers'
     )
     parser.add_argument(

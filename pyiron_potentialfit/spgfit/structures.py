@@ -1,4 +1,5 @@
 from dataclasses import dataclass, asdict
+from enum import Enum
 from io import StringIO
 from pprint import pprint
 from logging import getLogger, INFO
@@ -301,43 +302,72 @@ class TrainingDataConfig:
     min_dist: float = None
     delete_existing_job: bool = False
 
-def create_structure_set(pr, state, conf, fast_forward=False):
+class State(Enum):
+    """
+    The current state of the structure generation.
+    """
+
+    SPG = 'spg'
+    VOLMIN = 'volmin'
+    ALLMIN = 'allmin'
+    RANDOM = 'random'
+    FINISHED = 'finished'
+
+def create_structure_set(
+        pr: Project,
+        state: Union[str, State],
+        conf: TrainingDataConfig,
+        fast_forward: bool=False
+) -> State:
+    """
+    Create a new structure set for training.
+
+    Args:
+        pr (Project): project to work in
+        state (str, :class:`.State`): the current state
+        conf (:class:`.TrainingDataConfig`): the configuration for the structure set
+
+    Returns:
+        :class:`.State`: the current state the generation is in; if this is not :attr:`.State.FINISHED` you should call
+        this function again after some time until it is.
+    """
+    state = State(state)
     logger = getLogger('structures')
     buf = StringIO('')
     pprint(asdict(conf), stream=buf)
     logger.info('config: %s', buf.getvalue())
-    logger.info('current state: %s', state)
-    if state == 'spg':
+    logger.info('current state: %s', state.value)
+    if state == State.SPG:
         spg(
                 pr.create_group('containers'),
                 conf.elements, conf.max_atoms, conf.stoichiometry,
                 name=conf.name, min_dist=conf.min_dist,
                 delete_existing_job=conf.delete_existing_job
         )
-        state = 'volmin'
+        state = State.VOLMIN
         if not fast_forward:
             return state
-    if state == 'volmin':
+    if state == State.VOLMIN:
         try:
             cont = pr['containers'].load(f'{conf.name}')
             minimize(pr, cont, 'volume', conf.trace, conf.min_dist,
                      delete_existing_job=conf.delete_existing_job)
         except RunAgain:
             return state
-        state = 'allmin'
+        state = State.ALLMIN
         if not fast_forward:
             return state
-    if state == 'allmin':
+    if state == State.ALLMIN:
         try:
             cont = pr['containers'].load(f'{conf.name}VolMin')
             minimize(pr, cont, 'all', conf.trace, conf.min_dist,
                      delete_existing_job=conf.delete_existing_job)
         except RunAgain:
             return state
-        state = 'random'
+        state = State.RANDOM
         if not fast_forward:
             return state
-    if state == 'random':
+    if state == State.RANDOM:
         cont = pr['containers'].load(f'{conf.name}VolMinAllMin')
         rattle(
                 pr['containers'],
@@ -349,7 +379,7 @@ def create_structure_set(pr, state, conf, fast_forward=False):
                 conf.min_dist,
                 delete_existing_job=conf.delete_existing_job
         )
-        state = 'finished'
+        state = State.FINISHED
     return state
 
 from pyxtal import pyxtal
@@ -748,7 +778,7 @@ def main():
     pr.data.config = asdict(conf)
     pr.data.write()
 
-    state = create_structure_set(pr, state, conf, args.fast_forward is not None)
+    state = create_structure_set(pr, state, conf, args.fast_forward is not None).value
     pr.data.state = state
     pr.data.write()
     if state != "finished" and args.fast_forward is not None:

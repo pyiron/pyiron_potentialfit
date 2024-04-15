@@ -2,7 +2,7 @@ from argparse import ArgumentParser, RawDescriptionHelpFormatter, FileType
 from collections import defaultdict
 from dataclasses import dataclass, field, asdict
 from itertools import combinations_with_replacement
-from typing import Union, Optional, Mapping
+from typing import Union, Optional, Mapping, Iterable
 import logging
 
 from pyiron_base import Project
@@ -80,6 +80,7 @@ class CalculationConfig:
     # if float interpreted as k mesh spacing
     kpoints: Optional[Union[int, float]]
     incar: dict
+    min_dist: Optional[float]
 
     workflow: WorkflowProjectConfig
 
@@ -133,13 +134,24 @@ class CalculationConfig:
         return job
 
 
-def run_container(pr, cont, config: CalculationConfig):
+def run_container(pr: Project, cont: 'StructureContainer', config: CalculationConfig):
+    """
+    Run DFT on all structures in a container.
+
+    Args:
+        pr (Project): all DFT jobs are created in a sub project named by name of the given container
+        cont (StructureContainer): structures that should be run
+        config (:class:`.CalculationConfig`): parameters for the DFT calculations
+    """
     logger = logging.getLogger('calculations')
     logger.info('running DFT on %s in project %s', cont.name, pr.path)
 
     train = TrainingDataFlow(pr, cont.name)
     def if_new(train):
-        dfilter = DistanceFilter()
+        if config.min_dist is not None:
+            dfilter = DistanceFilter({el: config.min_dist/2 for el in cont._container.get_elements()})
+        else:
+            dfilter = DistanceFilter()
         filtered_cont = cont._container.sample(
                 lambda f, i: dfilter(f.get_structure(i))
         )
@@ -190,10 +202,29 @@ def deduplicate(cont, replace=True):
         dcont.rename(cont.name)
     return dcont
 
-def combine(pr, containers, name='Everything',
-            min_dist=None, force_cap=None,
-            check_duplicates=True,
-            delete_existing_job=False):
+def combine(
+        pr: Project, containers: Iterable[TrainingContainer],
+        name='Everything',
+        min_dist=None, force_cap=None,
+        check_duplicates=True,
+        delete_existing_job=False
+) -> TrainingContainer:
+    """
+    Combine a list of training containers into a new container.
+
+    Args:
+        pr (Project): where to put the new container
+        containers (iterable of TrainingContainer): containers to combine
+        min_dist (float or dict of str to float, optional): if given, filter structures that are have atoms than this;
+                if a dict it specifies the minimal allowed radii of each element
+        force_cap (float): filter structures that have atomic forces larger than this value
+        check_duplicates (bool): discard duplicated structures; some care has been taken to optimize this, but it can be
+                costly for large datasets
+        delete_existing_job (bool): combine containers again, even if `pr[name]` exists already
+
+    Returns:
+        :class:`.TrainingContainer`: contained with the combined training data
+    """
     every = pr.create.job.TrainingContainer(
             name,
             delete_existing_job=delete_existing_job
@@ -205,7 +236,6 @@ def combine(pr, containers, name='Everything',
         df['name'] = df.name.map(lambda s: cont.name + '_' + s)
         if force_cap is not None:
             I = df.forces.map(lambda f: np.linalg.norm(f, axis=-1).max() < force_cap)
-            print(cont.name, sum(I), df.shape[0])
             df = df.loc[I]
         if min_dist is not None:
             if isinstance(min_dist, dict):
@@ -230,7 +260,6 @@ def combine(pr, containers, name='Everything',
                     d = get_neighbors(a, num_neighbors=1).distances
                     return np.prod(d.shape) == 0 or d.min() > min_dist
             I = df.atoms.map(larger_than_min_dist)
-            print(cont.name, sum(I), df.shape[0])
             df = df.loc[I]
         every.include_dataset(df)
     if check_duplicates:
@@ -294,7 +323,7 @@ def main():
             help='INCAR to apply on top'
     )
     parser.add_argument(
-            '-p', '--project', default='calculations',
+            '-p', '--project', default='training',
             help='project to work in'
     )
     parser.add_argument(
@@ -350,6 +379,7 @@ def main():
             encut=args.encut,
             kpoints=args.kpoints,
             incar=incar,
+            min_dist=args.min_dist,
             cores=args.cores,
             run_time=args.run_time,
             workflow=WorkflowProjectConfig(
