@@ -404,10 +404,14 @@ class ARStructureContainer:
                 "Structure identifiers must not contain '/'. "
                 "Use .structure_file_path to use existing POSCAR files"
             )
-        
-    def write_xml_with_poscars(self, directory, name="structures.xml",):
+
+    def write_xml_with_poscars(
+        self,
+        directory,
+        name="structures.xml",
+    ):
         """
-        Internal helper function that writes an atomicrex structure input 
+        Internal helper function that writes an atomicrex structure input
         with POSCAR format structures. Not recommended normally.
 
         Args:
@@ -486,7 +490,7 @@ class ARStructureContainer:
             root.append(struct_xml)
         filename = posixpath.join(directory, name)
         write_pretty_xml(root, filename)
-    
+
     def write_xml_file(self, directory, name="structures.xml", use_poscars=False):
         """
         Internal helper function that writes an atomicrex style
@@ -506,7 +510,7 @@ class ARStructureContainer:
                 for prop, flat_prop in self.fit_properties.items():
                     if not prop in ("lattice-parameter", "ca-ratio"):
                         fit_properties_xml.append(flat_prop.to_xml_element(i, prop))
-                
+
                 vec_start = self._structures.start_index[i]
                 vec_end = self._structures.start_index[i] + self._structures.length[i]
                 forces = self.fit_properties["atomic-forces"]._per_element_arrays[
@@ -547,13 +551,10 @@ class ARStructureContainer:
                     fit_properties=fit_properties_xml,
                     fit=self._structures._per_chunk_arrays["fit"][i],
                 )
-                
+
             root.append(struct_xml)
         filename = posixpath.join(directory, name)
         write_pretty_xml(root, filename)
-
-
-
 
     def _parse_final_properties(self, struct_lines):
         """
@@ -821,7 +822,6 @@ def structure_meta_xml(
         else:
             poscar_file.text = f"{struct_file_path}POSCAR_{identifier}"
 
-
     if not clamp:
         relax_dof = ET.SubElement(struct_xml, "relax-dof")
         atom_coordinates = ET.SubElement(relax_dof, "atom-coordinates")
@@ -835,7 +835,18 @@ def structure_meta_xml(
     return struct_xml
 
 
-def user_structure_xml(identifier, fit_properties, pbc, cell, positions, symbols, forces=None, fit=True,relative_weight=1, clamp=True,):
+def user_structure_xml(
+    identifier,
+    fit_properties,
+    pbc,
+    cell,
+    positions,
+    symbols,
+    forces=None,
+    fit=True,
+    relative_weight=1,
+    clamp=True,
+):
 
     struct_xml = structure_meta_xml(
         identifier=identifier,
@@ -869,14 +880,14 @@ def user_structure_xml(identifier, fit_properties, pbc, cell, positions, symbols
 
     if forces is not None:
         idx = 0
-        xmlforces = ET.SubElement(struct_xml, 'atomic-forces')
+        xmlforces = ET.SubElement(struct_xml, "atomic-forces")
         for f in forces:
             xmlf = ET.SubElement(xmlforces, "force")
             xmlf.set("x", f"{f[0]}")
             xmlf.set("y", f"{f[1]}")
             xmlf.set("z", f"{f[2]}")
             xmlf.set("i", f"{idx}")
-            idx+=1
+            idx += 1
 
     return struct_xml
 
