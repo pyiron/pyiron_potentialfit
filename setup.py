@@ -31,7 +31,7 @@ setup(
     packages=find_packages(exclude=["*tests*"]),
     install_requires=[
         'ase==3.22.1',
-        'pyiron_atomistics==0.5.0',
+        'pyiron_atomistics==0.5.1',
         'matplotlib==3.8.3',
         'numpy==1.26.4',
         'pyiron_base==0.7.9',
