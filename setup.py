@@ -31,12 +31,22 @@ setup(
     packages=find_packages(exclude=["*tests*"]),
     install_requires=[
         'ase==3.22.1',
-        'pyiron_atomistics==0.4.16',
+        'pyiron_atomistics==0.5.1',
         'matplotlib==3.8.3',
         'numpy==1.26.4',
-        'pyiron_base==0.7.9',
+        'pyiron_base==0.8.1',
         'scipy==1.11.4',
         'runnerase==0.3.3',
+        # spgfit
+        'seaborn',
+        'dill'
     ],
     cmdclass=versioneer.get_cmdclass(),
+    entry_points={
+        "console_scripts": [
+            "spgfit-structures = pyiron_potentialfit.spgfit.structures:main",
+            "spgfit-calculations = pyiron_potentialfit.spgfit.calculations:main",
+            "spgfit-learn = pyiron_potentialfit.spgfit.learn:main"
+        ]
+    }
 )
