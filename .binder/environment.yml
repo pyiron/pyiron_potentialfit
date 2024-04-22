@@ -14,8 +14,7 @@ dependencies:
 - scipy =1.11.4
 - dill =0.3.8
 - seaborn =0.13.2
+- runnerase =0.3.3
 - python >= 3.10
 - lammps
 - nglview >=3.0.8
-- pip:
-  - runnerase==0.3.3

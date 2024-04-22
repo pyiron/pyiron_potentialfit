@@ -19,5 +19,4 @@ dependencies:
 - scipy =1.11.4
 - dill =0.3.8
 - seaborn =0.13.2
-- pip:
-  - runnerase==0.3.3
+- runnerase =0.3.3
