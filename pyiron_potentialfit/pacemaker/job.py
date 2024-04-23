@@ -285,7 +285,7 @@ class PacemakerJob(GenericJob, PotentialFit):
                 )
 
         with open(os.path.join(self.working_directory, "input.yaml"), "w") as f:
-            yaml.YAML(typ='unsafe', pure=True).dump(input_yaml_dict, f)
+            yaml.YAML(typ="unsafe", pure=True).dump(input_yaml_dict, f)
 
     def _analyse_log(self, logfile="metrics.txt"):
         metrics_filename = os.path.join(self.working_directory, logfile)
