@@ -9,6 +9,7 @@ from typing import Iterable, Union
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
+import pandas as pd
 from tqdm.auto import tqdm
 
 from .util import get_table, read_generic_parameters
@@ -61,12 +62,12 @@ def broadcast(*names):
     return wrapper
 
 
-@broadcast("min_dist", "max_dist", "level")
+@broadcast("rmin", "rmax", "level")
 def fit(
     fit_pr: Project,
     train: TrainingContainer,
-    min_dist: Union[float, Iterable[float]],
-    max_dist: Union[float, Iterable[float]],
+    rmin: Union[float, Iterable[float]],
+    rmax: Union[float, Iterable[float]],
     level: Union[int, Iterable[int]],
     iterations: int = 5000,
     energy_weight: float = None,
@@ -78,14 +79,14 @@ def fit(
     """
     Fit a potential to the given structures.
 
-    If min_dist, max_dist or level are iterables the function is broadcasted
+    If rmin, rmax or level are iterables the function is broadcasted
     over them.
 
     Args:
         fit_pr (Project): project that contains the fitting jobs
         train (TrainingContainer): container that keeps all the structures
-        min_dist (float, Iterable[float]): lower cut off of the potential
-        max_dist (float, Iterable[float]): upper cut off of the potential
+        rmin (float, Iterable[float]): lower cut off of the potential
+        rmax (float, Iterable[float]): upper cut off of the potential
         level (int, Iterable[int]): level of the potential
         energy_weight (float): relative weight of energy error in cost function
         force_weight (float): relative weight of force error in cost function
@@ -96,7 +97,7 @@ def fit(
     """
     pr = fit_pr.create_group(train.name)
 
-    name = [f"MTP{level:02}", round(min_dist, 2), round(max_dist, 2)]
+    name = [f"MTP{level:02}", round(rmin, 2), round(rmax, 2)]
     if iterations is not None:
         name += ["I", iterations]
     if energy_weight is not None:
@@ -110,8 +111,8 @@ def fit(
         name, delete_existing_job=delete_existing_job, delete_aborted_job=True
     )
     j["user/level"] = level
-    j["user/rmax"] = max_dist
-    j["user/rmin"] = min_dist
+    j["user/rmax"] = rmax
+    j["user/rmin"] = rmin
     if iterations is not None:
         j["user/iterations"] = iterations
     if energy_weight is not None:
@@ -122,7 +123,7 @@ def fit(
         j["user/stress_weight"] = stress_weight
     if j.status.finished and refit and not j.name.endswith("_restart"):
         j = j.restart()
-        j["user/restart"] = True
+        j["user/refit"] = True
         j.server.queue = "cmti"
         if level < 16:
             j.server.cores = 40
@@ -138,8 +139,8 @@ def fit(
 
     j.add_job_to_fitting(train.id, 0, train.number_of_structures - 1, 1)
     j.input["potential"] = level
-    j.input["min_dist"] = min_dist
-    j.input["max_dist"] = max_dist
+    j.input["rmin"] = rmin
+    j.input["rmax"] = rmax
     if iterations is not None:
         j.input["iteration"] = iterations
     if energy_weight is not None:
@@ -323,9 +324,9 @@ def analyze(fit_pr: Project, delete_existing_job=False):
         tab.add["level"] = lambda j: int(
             read_generic_parameters(j["mlip_inp"], "potential")
         )
-        tab.add["rmin"] = lambda j: read_generic_parameters(j["mlip_inp"], "min_dist")
-        tab.add["rmax"] = lambda j: read_generic_parameters(j["mlip_inp"], "max_dist")
-        tab.add["restart"] = lambda j: j.name.endswith("restart")
+        tab.add["rmin"] = lambda j: read_generic_parameters(j["mlip_inp"], "rmin")
+        tab.add["rmax"] = lambda j: read_generic_parameters(j["mlip_inp"], "rmax")
+        tab.add["refit"] = lambda j: j.name.endswith("refit")
         tab.add["energy_spread"] = energy_spread
         tab.add["energy_rmse"] = energy_rmse
         tab.add["energy_mae"] = energy_mae
@@ -380,24 +381,24 @@ def plot_error_vs_level(df, logy=True, **kwargs):
         y="error",
         col="quantity",
         row="metric",
-        hue="max_dist",
-        style="min_dist",
+        hue="rmax",
+        style="rmin",
         facet_kws={"sharey": "col"},
         **kwargs,
     ).set(yscale="log" if logy else "linear")
 
 
-def plot_error_vs_max_dist(df, logy=True, **kwargs):
+def plot_error_vs_rmax(df, logy=True, **kwargs):
     return sns.relplot(
         data=df,
         kind="line",
         marker="o",
-        x="max_dist",
+        x="rmax",
         y="error",
         col="quantity",
         row="metric",
         hue="level",
-        style="min_dist",
+        style="rmin",
         facet_kws={"sharey": "col"},
         **kwargs,
     ).set(yscale="log" if logy else "linear")
@@ -489,8 +490,8 @@ def main():
         fit(
             fit_pr,
             cont,
-            min_dist=args.rmin,
-            max_dist=args.rmax,
+            rmin=args.rmin,
+            rmax=args.rmax,
             level=args.level,
             iterations=args.iterations,
             refit=args.refit,
