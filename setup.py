@@ -38,8 +38,9 @@ setup(
         'scipy==1.11.4',
         'runnerase==0.3.3',
         # spgfit
-        'seaborn',
-        'dill'
+        'dill>=0.3.0',
+        'seaborn>=0.13.0,<0.14',
+        'pyxtal>=0.6.0,<0.7',
     ],
     cmdclass=versioneer.get_cmdclass(),
     entry_points={
