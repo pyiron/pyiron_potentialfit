@@ -31,11 +31,11 @@ setup(
     packages=find_packages(exclude=["*tests*"]),
     install_requires=[
         'ase==3.22.1',
-        'pyiron_atomistics==0.4.16',
-        'matplotlib==3.8.3',
+        'pyiron_atomistics==0.5.2',
+        'matplotlib==3.8.4',
         'numpy==1.26.4',
-        'pyiron_base==0.7.9',
-        'scipy==1.11.4',
+        'pyiron_base==0.8.1',
+        'scipy==1.13.0',
         'runnerase==0.3.3',
         # spgfit
         'dill>=0.3.0',

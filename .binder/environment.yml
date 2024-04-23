@@ -5,15 +5,16 @@ dependencies:
 - coveralls
 - coverage
 - codacy-coverage
-- matplotlib =3.8.3
+- matplotlib =3.8.4
 - numpy =1.26.4
-- pyiron_base =0.7.9
-- pyiron_atomistics =0.4.16
+- pyiron_base =0.8.1
+- pyiron_atomistics =0.5.2
 - pyiron-data =0.0.25
 - pyparsing =3.1.1
-- scipy =1.11.4
+- scipy =1.13.0
+- dill =0.3.8
+- seaborn =0.13.2
+- runnerase =0.3.3
 - python >= 3.10
 - lammps
 - nglview >=3.0.8
-- pip:
-  - runnerase==0.3.3
