@@ -35,7 +35,7 @@ setup(
         'matplotlib==3.8.4',
         'numpy==1.26.4',
         'pyiron_base==0.8.1',
-        'scipy==1.11.4',
+        'scipy==1.13.0',
         'runnerase==0.3.3',
         # spgfit
         'seaborn',
