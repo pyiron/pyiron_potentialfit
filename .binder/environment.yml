@@ -15,7 +15,7 @@ dependencies:
 - dill >=0.3
 - seaborn >=0.13.0
 - runnerase =0.3.3
-- pyxtal>=0.6.0,<0.7
+- pyxtal >=0.6.0,<0.7
 - python >= 3.10
 - lammps
 - nglview >=3.0.8
