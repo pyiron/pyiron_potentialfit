@@ -305,7 +305,7 @@ class PacemakerJob(GenericJob, PotentialFit):
         final_potential_yace_string = "".join(ace_lines)
 
         with open(self.get_final_potential_filename_ace(), "r") as f:
-            yace_data = yaml.safe_load(f)
+            yace_data = yaml.YAML(typ="unsafe", pure=True).load(f)
 
         elements_name = yace_data["elements"]
 
