@@ -856,6 +856,11 @@ def main():
         action="store_true",
         help="Retry the current step from scratch",
     )
+    parser.add_argument(
+        "--export", type=str,
+        help="Optionally specify a directory where to dump POSCAR files with the generated structures after everything "
+             "is finished."
+    )
     args = parser.parse_args()
 
     pr = Project(args.project)
@@ -881,6 +886,13 @@ def main():
     pr.data.write()
     if state != "finished" and args.fast_forward is not None:
         fast_forward(args.fast_forward, __spec__)
+    if state == "finished" and args.export is not None:
+        os.makedirs(args.export, exist_ok=True)
+        for cont in pr["containers"].iter_jobs(hamilton="StructureContainer"):
+            dir_path = os.path.join(args.export, cont.name)
+            os.makedirs(dir_path, exist_ok=True)
+            for i, s in enumerate(cont.iter_structures()):
+                s.write(os.path.join(dir_path, cont._container["identifier", i]) + ".POSCAR", format="vasp")
 
 
 if __name__ == "__main__":
