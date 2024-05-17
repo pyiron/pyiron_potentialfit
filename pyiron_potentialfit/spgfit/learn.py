@@ -254,7 +254,14 @@ def energy_mae(j):
     N = inpt.get_array("length")
     train = np.squeeze(inpt.get_array("energy")) / N
     pred = np.squeeze(j["output/training_efs"].to_object().get_array("energy")) / N
-    # return np.abs(train-pred).mean()
+    return np.abs(train-pred).mean()
+
+
+def energy_max(j):
+    inpt = j["input/training_data"].to_object()
+    N = inpt.get_array("length")
+    train = np.squeeze(inpt.get_array("energy")) / N
+    pred = np.squeeze(j["output/training_efs"].to_object().get_array("energy")) / N
     return np.abs(train - pred).max()
 
 
@@ -262,10 +269,18 @@ def force_rmse(j):
     inpt = j["input/training_data"].to_object()
     train = np.squeeze(inpt.get_array("forces"))
     pred = np.squeeze(j["output/training_efs"].to_object().get_array("forces"))
-    return np.sqrt(np.mean((train - pred) ** 2))
+    return np.sqrt(np.mean(np.linalg.norm(train - pred, axis=-1) ** 2))
 
 
 def force_mae(j):
+    inpt = j["input/training_data"].to_object()
+    N = inpt.get_array("length")
+    train = np.squeeze(inpt.get_array("forces"))
+    pred = np.squeeze(j["output/training_efs"].to_object().get_array("forces"))
+    return np.mean(np.linalg.norm(train - pred, axis=-1))
+
+
+def force_max(j):
     inpt = j["input/training_data"].to_object()
     N = inpt.get_array("length")
     train = np.squeeze(inpt.get_array("forces"))
@@ -282,6 +297,12 @@ def stress_hydro_rmse(j):
 def stress_hydro_mae(j):
     train = np.squeeze(j["input/training_data"].to_object().get_array("stress"))
     pred = np.squeeze(j["output/training_efs"].to_object().get_array("stress"))
+    return np.abs(train[:, :3] - pred[:, :3]).mean()
+
+
+def stress_hydro_max(j):
+    train = np.squeeze(j["input/training_data"].to_object().get_array("stress"))
+    pred = np.squeeze(j["output/training_efs"].to_object().get_array("stress"))
     return np.abs(train[:, :3] - pred[:, :3]).max()
 
 
@@ -292,6 +313,12 @@ def stress_shear_rmse(j):
 
 
 def stress_shear_mae(j):
+    train = np.squeeze(j["input/training_data"].to_object().get_array("stress"))
+    pred = np.squeeze(j["output/training_efs"].to_object().get_array("stress"))
+    return np.abs(train[:, 3:] - pred[:, 3:]).mean()
+
+
+def stress_shear_max(j):
     train = np.squeeze(j["input/training_data"].to_object().get_array("stress"))
     pred = np.squeeze(j["output/training_efs"].to_object().get_array("stress"))
     return np.abs(train[:, 3:] - pred[:, 3:]).max()
@@ -306,7 +333,27 @@ def analyze(fit_pr: Project, delete_existing_job=False):
     """
     Collect error metrics on a project of fits.
 
-    Return MAE and RMSE of energies, forces and stresses for each fitted potential together with
+    Return MAE and RMSE of (per atom) energies, (magnitude) forces and (axial and shear) stresses for each fitted
+    potential together with the energy spread observed in the training data.
+
+    The returned table is in "melted" or long form, i.e. each potential will have multiple rows associated with it, one
+    for each quantity and error metric.  This is for ease of plotting in :func:`.plot_error_vs_level()` and
+    :func:`.plot_error_vs_rmax()`.  You can obtain an easier to read representation for a single potential by pivoting
+    it back, like so
+
+    >>> df = analyze(...)
+    >>> df.query('job_id==...').pivot(index='quantity', columns='metric', values='error')
+
+    where you replace the dots in the last line by the numerical job id of the fit or even dropping the query
+
+    >>> df.pivot(index=['job_id', 'quantity'], columns='metric', values='error')
+
+    .. warning:: Beware!
+
+        Because the stress errors are separated into diagonal and off-diagonal contributions, they are defined on a
+        component level, which means they are **not** rotationally invariant!  Because our data generally do not have a
+        preferred orientation this effect may or may not average out, but the technically correct thing to do would be
+        to calculate the Frobenius norm of the stress tensor difference and average that.  For now this remains to do.
 
     Args:
         fit_pr (Project): project with Mlip jobs inside
@@ -324,18 +371,22 @@ def analyze(fit_pr: Project, delete_existing_job=False):
         tab.add["level"] = lambda j: int(
             read_generic_parameters(j["mlip_inp"], "potential")
         )
-        tab.add["rmin"] = lambda j: read_generic_parameters(j["mlip_inp"], "rmin")
-        tab.add["rmax"] = lambda j: read_generic_parameters(j["mlip_inp"], "rmax")
+        tab.add["rmin"] = lambda j: read_generic_parameters(j["mlip_inp"], "min_dist")
+        tab.add["rmax"] = lambda j: read_generic_parameters(j["mlip_inp"], "max_dist")
         tab.add["refit"] = lambda j: j.name.endswith("refit")
         tab.add["energy_spread"] = energy_spread
         tab.add["energy_rmse"] = energy_rmse
         tab.add["energy_mae"] = energy_mae
+        tab.add["energy_max"] = energy_max
         tab.add["force_rmse"] = force_rmse
         tab.add["force_mae"] = force_mae
+        tab.add["force_max"] = force_max
         tab.add["stress_hydro_rmse"] = stress_hydro_rmse
         tab.add["stress_hydro_mae"] = stress_hydro_mae
+        tab.add["stress_hydro_max"] = stress_hydro_max
         tab.add["stress_shear_rmse"] = stress_shear_rmse
         tab.add["stress_shear_mae"] = stress_shear_mae
+        tab.add["stress_shear_max"] = stress_shear_max
         tab.add["training"] = lambda j: "|".join(
             j.project.inspect(jid).name for jid in j.content.input["job_id_list"]
         )
@@ -353,14 +404,19 @@ def analyze(fit_pr: Project, delete_existing_job=False):
 
     # Melt table to have easy seaborn plotting later
     errors = [
+        "energy_spread",
         "energy_rmse",
         "energy_mae",
+        "energy_max",
         "force_rmse",
         "force_mae",
+        "force_max",
         "stress_hydro_rmse",
         "stress_hydro_mae",
+        "stress_hydro_max",
         "stress_shear_rmse",
         "stress_shear_mae",
+        "stress_shear_max",
     ]
     cols = [c for c in df.columns if c not in errors]
     df = df.melt(id_vars=cols, value_vars=errors, value_name="error")
@@ -374,15 +430,15 @@ def analyze(fit_pr: Project, delete_existing_job=False):
 
 def plot_error_vs_level(df, logy=True, **kwargs):
     return sns.relplot(
-        data=df,
+        data=df.query("metric!='SPREAD'"),
         kind="line",
-        marker="o",
+        markers=True,
         x="level",
         y="error",
         col="quantity",
         row="metric",
         hue="rmax",
-        style="rmin",
+        style="training",
         facet_kws={"sharey": "col"},
         **kwargs,
     ).set(yscale="log" if logy else "linear")
@@ -390,15 +446,15 @@ def plot_error_vs_level(df, logy=True, **kwargs):
 
 def plot_error_vs_rmax(df, logy=True, **kwargs):
     return sns.relplot(
-        data=df,
+        data=df.query("metric!='SPREAD'"),
         kind="line",
-        marker="o",
+        markers=True,
         x="rmax",
         y="error",
         col="quantity",
         row="metric",
         hue="level",
-        style="rmin",
+        style="training",
         facet_kws={"sharey": "col"},
         **kwargs,
     ).set(yscale="log" if logy else "linear")
@@ -408,7 +464,7 @@ epilog = """
 We lay out the project like this,
 
 `root/training/containers`:     where we read the --containers from
-`root/fits`:                    work exlusively in this project
+`root/fits`:                    work exclusively in this project
 `root/fits/{container_names}`:  working projects for each of the passed containers
 
 where `root` is the programs working directory and `container_names` what you passed as --containers.  For each given
