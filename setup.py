@@ -37,6 +37,7 @@ setup(
         'pyiron_base==0.8.4',
         'scipy==1.13.1',
         'runnerase==0.3.3',
+        'pyiron_snippets==0.1.1',
         # spgfit
         'dill>=0.3.0',
         'seaborn>=0.13.0,<0.14',
