@@ -41,7 +41,8 @@ from pyiron_atomistics.atomistics.structure.structurestorage import (
     StructurePlots,
 )
 from pyiron_atomistics.atomistics.structure.neighbors import NeighborsTrajectory
-from pyiron_base import GenericJob, DataContainer, deprecate
+from pyiron_base import GenericJob, DataContainer
+from pyiron_snippets.deprecate import deprecate
 
 
 class TrainingContainer(GenericJob, HasStructure):
