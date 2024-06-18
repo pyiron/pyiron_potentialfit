@@ -349,6 +349,8 @@ class TrainingPlots(StructurePlots):
             [d.min() for d in np.split(neigh["distances"][:, 0], N.cumsum())[:-1]]
         )
         plt.scatter(D, E, marker=".")
+        plt.xlabel(r"Closest Nearest Neighbor Distance [$\AA$]")
+        plt.ylabel("Atomic Energy [ev/Atom]")
 
     def forces(self, axis: Optional[int] = None):
         """
