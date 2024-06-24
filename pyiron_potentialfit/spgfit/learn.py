@@ -139,8 +139,8 @@ def fit(
 
     j.add_job_to_fitting(train.id, 0, train.number_of_structures - 1, 1)
     j.input["potential"] = level
-    j.input["rmin"] = rmin
-    j.input["rmax"] = rmax
+    j.input["min_dist"] = rmin
+    j.input["max_dist"] = rmax
     if iterations is not None:
         j.input["iteration"] = iterations
     if energy_weight is not None:
@@ -536,11 +536,15 @@ def main():
         "--stress-weight",
         type=float,
     )
+    parser.add_argument(
+        "--delete-existing-job",
+        action="store_true",
+    )
 
     args = parser.parse_args()
 
     fit_pr = Project(args.project)
-    train_pr = fit_pr[".."].create_group(args.calculations_project)
+    train_pr = fit_pr[".."].create_group(args.training_project)
     for contname in args.containers:
         cont = train_pr.load(contname)
         fit(
@@ -554,6 +558,7 @@ def main():
             energy_weight=args.energy_weight,
             force_weight=args.force_weight,
             stress_weight=args.stress_weight,
+            delete_existing_job=args.delete_existing_job,
         )
 
 

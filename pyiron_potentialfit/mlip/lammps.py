@@ -134,9 +134,9 @@ write-cfgs:skip 0
                     forces.append(cfg.forces)
                     stress.append(
                         [
-                            [cgf.stresses[0], cgf.stresses[5], cgf.stresses[4]],
-                            [cgf.stresses[5], cgf.stresses[1], cgf.stresses[3]],
-                            [cgf.stresses[4], cgf.stresses[3], cgf.stresses[2]],
+                            [cfg.stresses[0], cfg.stresses[5], cfg.stresses[4]],
+                            [cfg.stresses[5], cfg.stresses[1], cfg.stresses[3]],
+                            [cfg.stresses[4], cfg.stresses[3], cfg.stresses[2]],
                         ]
                     )
                     energy.append(cfg.energy)
