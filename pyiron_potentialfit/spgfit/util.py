@@ -1,4 +1,5 @@
 from collections import defaultdict
+from dataclasses import dataclass
 from itertools import combinations_with_replacement
 import warnings
 import os.path
@@ -6,7 +7,7 @@ import os
 
 import numpy as np
 
-from pyiron_base import Project, GenericParameters
+from pyiron_base import Project, GenericParameters, GenericJob
 
 # Extracted from Vasp PBE POTCARs (default valency)
 # (implicitly sorted by atomic number, important!)
@@ -167,3 +168,29 @@ def symlink_project(pr: Project):
     if target_dir[-1] == "/":
         target_dir = target_dir[:-1]
     pr.symlink(os.path.join(SYMLINK_TARGET, os.path.dirname(target_dir)))
+
+
+# Generic config objects for all tools
+
+@dataclass
+class ServerConfig:
+    """Stores computational parameters and applies them to pyiron jobs."""
+
+    cores: int = 40
+    run_time: float = 2 * 60 * 60  # seconds
+    queue: str = "cmti"
+
+    def configure_server_on_job(self, job: GenericJob) -> GenericJob:
+        """
+        Apply the stored parameter to the given job.
+
+        Args:
+            job (:class:`pyiron_base.jobs.job.GenericJob`): job to configure
+
+        Returns:
+            same job as given
+        """
+        job.server.queue = self.queue
+        job.server.cores = self.cores
+        job.server.run_time = self.run_time
+        return job
