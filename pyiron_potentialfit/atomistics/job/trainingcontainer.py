@@ -658,3 +658,33 @@ class TrainingStorage(StructureStorage):
         if self._plots is None:
             self._plots = TrainingPlots(self)
         return self._plots
+
+    def train_test_split(self, train_size, seed=None):
+        """
+        Split into two random sub sets for training and testing.
+
+        Args:
+            train_size (float): fraction of data points for the training set, must be within (0, 1)
+            seed (optional): how to initialize the RNG, see numpy.random.default_rng() for details, but an int will do
+
+        Returns:
+            (TrainingStorage, TrainingStorage): two training storages for training and testing
+        """
+        if not (0 < train_size < 1):
+            raise ValueError(f"train_size must be within (0,1), not {train_size}!")
+        rng = np.random.default_rng(seed)
+        brk = int(len(self) * train_size)
+        if brk in (0, 1):
+            raise ValueError(
+                    f"container not large enough to realize this split, only multiples of {1/len(self)} possible!"
+            )
+
+        # somewhat inefficient, but probably good enough for normal training set sizes
+        idx = np.arange(len(self))
+        rng.shuffle(idx)
+        test_idx = idx[:brk]
+        train_idx = idx[brk:]
+        return (
+                self.sample(lambda f, i: i in test_idx),
+                self.sample(lambda f, i: i in train_idx)
+        )
