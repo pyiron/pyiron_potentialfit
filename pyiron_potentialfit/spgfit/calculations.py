@@ -5,7 +5,7 @@ from itertools import combinations_with_replacement
 from typing import Union, Optional, Mapping, Iterable
 import logging
 
-from pyiron_base import Project
+from pyiron_base import Project, GenericJob
 from pyiron_atomistics.atomistics.structure.has_structure import HasStructure
 from pyiron_potentialfit.atomistics.job.trainingcontainer import TrainingContainer
 
@@ -14,7 +14,8 @@ from pyiron_contrib.jobfactories import VaspFactory
 from structuretoolkit import get_neighbors
 
 from .projectflow import StructureProjectFlow, WorkflowProjectConfig, RunAgain
-from .util import DistanceFilter, fast_forward
+from .util import DistanceFilter, fast_forward, ServerConfig
+from .vasp import KMeshSpec, Kpoints, Kspacing, VaspConfig
 
 from tqdm.auto import tqdm
 import numpy as np
@@ -72,56 +73,45 @@ class TrainingDataFlow(StructureProjectFlow):
         train.run()
         return train
 
-
 @dataclass
 class CalculationConfig:
-    encut: float
-    # if float interpreted as k mesh spacing
-    kpoints: Optional[Union[int, float]]
-    incar: dict
-    min_dist: Optional[float]
+    vasp: VaspConfig
+    server: ServerConfig
 
     workflow: WorkflowProjectConfig
 
-    cores: int = 40
-    run_time: float = 2 * 60 * 60  # seconds
-    queue: str = "cmti"
+    min_dist: Optional[float] = None
 
     def configure_dft_job(self, job: Union[VaspFactory, "GenericDFTJob"]):
-        job.set_encut(self.encut)
-        kpoints = self.kpoints
-        if isinstance(kpoints, int):
-            job.set_kpoints([self.kpoints] * 3)
-        elif isinstance(kpoints, float):
-            job.set_kpoints(k_mesh_spacing=kpoints)
-        elif kpoints is None:
+        if self.vasp.encut is not None:
+            job.set_encut(self.vasp.encut)
+        kmesh = self.vasp.kmesh
+        if isinstance(kmesh, int):
+            job.set_kpoints([kmesh] * 3)
+        elif isinstance(kmesh, float):
+            job.set_kpoints(k_mesh_spacing=kmesh)
+        elif isinstance(kmesh, KMeshSpec):
+            kmesh.configure(job)
+        elif kmesh is None:
             pass
         else:
-            assert False, f"kpoints must be float/int/None, not {kpoints}"
+            assert False, f"kpoints must be float/int/None, not {kmesh}"
 
-        job.server.queue = self.queue
-        job.server.cores = self.cores
-        job.server.run_time = self.run_time
+        self.server.configure_server_on_job(job)
+
         return job
 
     def configure_vasp_job(self, job: VaspFactory):
-        if isinstance(self.kpoints, float):
-            self.incar["KSPACING"] = self.kpoints
-        if "KSPACING" in self.incar:
-            self.kpoints = None
-            self.incar["KGAMMA"] = ".TRUE."
         job = self.configure_dft_job(job)
-        job.incar["NCORE"] = max(20, self.cores)
+        job.incar["NCORE"] = max(20, self.server.cores)
         # j.incar['LCHARG'] = '.FALSE.'
-        job.incar["EDIFF"] = 1e-6
+        job.incar["EDIFF"] = 1e-8
+        job.incar["PREC"] = "Accurate"
         job.incar["ALGO"] = "Normal"
-        for k, v in self.incar.items():
+        for k, v in self.vasp.incar.items():
             job.incar[k] = v
         job.set_eddrmm_handling(status="ignore")
         job.enable_nband_hack({"Al": 2, "H": 2})  # = 3/2 + 1/2 VASP default
-        # job.server.queue = 'cmti'
-        # job.server.cores = 40
-        # job.server.run_time = 60 * 60 * 2
         return job
 
     def get_job(self):
@@ -169,7 +159,7 @@ def run_container(pr: Project, cont: "StructureContainer", config: CalculationCo
             )
         return results
 
-    train.check(
+    return train.check(
         config.workflow,
         if_new,
         if_finished,
@@ -216,6 +206,7 @@ def combine(
     name="Everything",
     min_dist=None,
     force_cap=None,
+    energy_cap=None,
     check_duplicates=True,
     delete_existing_job=False,
 ) -> TrainingContainer:
@@ -245,6 +236,9 @@ def combine(
             continue
         df = cont.to_pandas()
         df["name"] = df.name.map(lambda s: cont.name + "_" + s)
+        if energy_cap is not None:
+            I = df.energy/df.number_of_atoms <= energy_cap
+            df = df.loc[I]
         if force_cap is not None:
             I = df.forces.map(lambda f: np.linalg.norm(f, axis=-1).max() < force_cap)
             df = df.loc[I]
@@ -309,10 +303,10 @@ that collects every structure.
 
 We lay out the project like this,
 
-`root/structures/containers`:             where we read the --containers from
-`root/calculations`:                      work exlusively in this project
-`root/calculations/containers`:           will ultimately contain the final training data
-`root/calculations/{container_names}`:    working projects for each of the passed containers
+`root/structures/containers`:         where we read the --containers from
+`root/training`:                      work exlusively in this project
+`root/training/containers`:           will ultimately contain the final training data
+`root/training/{container_names}`:    working projects for each of the passed containers
 
 where `root` is the programs working directory and `container_names` what you passed as --containers.
 
@@ -327,10 +321,12 @@ def main():
         epilog=epilog,
         formatter_class=RawDescriptionHelpFormatter,
     )
-    parser.add_argument(
+
+    dft_group = parser.add_argument_group("DFT")
+    dft_group.add_argument(
         "-e", "--encut", type=float, default=550, help="Plane wave energy cut off"
     )
-    kgroup = parser.add_mutually_exclusive_group()
+    kgroup = dft_group.add_mutually_exclusive_group()
     kgroup.add_argument(
         "-k",
         "--kpoints",
@@ -346,9 +342,10 @@ def main():
         dest="kpoints",
         help="k point sampling (k mesh spacing if given as float",
     )
-    parser.add_argument(
+    dft_group.add_argument(
         "--incar", type=FileType("r"), default=None, help="INCAR to apply on top"
     )
+
     parser.add_argument(
         "-p", "--project", default="training", help="project to work in"
     )
@@ -384,25 +381,27 @@ def main():
         default=None,
         help="Smallest nearest neighbor distance to allow",
     )
-    parser.add_argument(
+
+    server_group = parser.add_argument_group("Server")
+    server_group.add_argument(
+        "--queue",
+        default=ServerConfig.queue,
+        help="Pyiron queue to submit jobs to"
+    )
+    server_group.add_argument(
         "--cores",
         type=int,
-        default=CalculationConfig.cores,
+        default=ServerConfig.cores,
         help="Number of cores for each DFT run",
     )
-    parser.add_argument(
+    server_group.add_argument(
         "-r",
         "--run-time",
         type=float,
-        default=CalculationConfig.run_time,
+        default=ServerConfig.run_time,
         help="Run time limit for each DFT run in seconds",
     )
-    parser.add_argument(
-        "--fast-forward",
-        type=int,
-        default=None,
-        help="Automatically go to the next step after sleeping for this many seconds",
-    )
+
     workflow_group = parser.add_argument_group("Workflow")
     workflow_group.add_argument(
         "--delete-existing-job",
@@ -416,6 +415,12 @@ def main():
         help="Maximum amount of aborted/not_converged/warning jobs to accept; "
         "if above try to repair/converge jobs",
     )
+    workflow_group.add_argument(
+        "--fast-forward",
+        type=int,
+        default=None,
+        help="Automatically go to the next step after sleeping for this many seconds",
+    )
 
     args = parser.parse_args()
 
@@ -426,17 +431,21 @@ def main():
         }
 
     conf = CalculationConfig(
-        encut=args.encut,
-        kpoints=args.kpoints,
-        incar=incar,
-        min_dist=args.min_dist,
-        cores=args.cores,
-        run_time=args.run_time,
-        workflow=WorkflowProjectConfig(
-            delete_existing_job=args.delete_existing_job,
-            broken_threshold=args.broken_threshold,
-            finished_threshold=0.9,
-        ),
+            vasp=VaspConfig(
+                encut=args.encut,
+                kmesh=args.kpoints,
+                incar=incar,
+            ),
+            server=ServerConfig(
+                cores=args.cores,
+                run_time=args.run_time,
+            ),
+            workflow=WorkflowProjectConfig(
+                delete_existing_job=args.delete_existing_job,
+                broken_threshold=args.broken_threshold,
+                finished_threshold=0.9,
+            ),
+            min_dist=args.min_dist,
     )
 
     pr = Project(args.project)
