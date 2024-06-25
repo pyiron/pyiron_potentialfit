@@ -114,7 +114,6 @@ class PotentialFit(abc.ABC):
         pass
 
 
-
 class PotentialPlots:
     def __init__(self, training_data, predicted_data):
         self._training_data = training_data
@@ -317,37 +316,35 @@ class PotentialMetrics:
         self._predicted_data = predicted_data
 
     def _rmse(self, a, b):
-        return np.sqrt(np.mean((a-b)**2))
+        return np.sqrt(np.mean((a - b) ** 2))
 
     def _mae(self, a, b):
-        return np.mean(np.abs(a-b))
+        return np.mean(np.abs(a - b))
 
     @property
     def energy_rmse(self):
         N = self._true_data["length"]
         return self._rmse(
-                self._true_data["energy"]/N,
-                self._predicted_data["energy"]/N
+            self._true_data["energy"] / N, self._predicted_data["energy"] / N
         )
 
     @property
     def energy_mae(self):
         N = self._true_data["length"]
         return self._mae(
-                self._true_data["energy"]/N,
-                self._predicted_data["energy"]/N
+            self._true_data["energy"] / N, self._predicted_data["energy"] / N
         )
 
     @property
     def force_rmse(self):
         return self._rmse(
-                np.linalg.norm(self._true_data["forces"], axis=-1),
-                np.linalg.norm(self._predicted_data["forces"], axis=-1)
+            np.linalg.norm(self._true_data["forces"], axis=-1),
+            np.linalg.norm(self._predicted_data["forces"], axis=-1),
         )
 
     @property
     def force_mae(self):
         return self._mae(
-                np.linalg.norm(self._true_data["forces"], axis=-1),
-                np.linalg.norm(self._predicted_data["forces"], axis=-1)
+            np.linalg.norm(self._true_data["forces"], axis=-1),
+            np.linalg.norm(self._predicted_data["forces"], axis=-1),
         )

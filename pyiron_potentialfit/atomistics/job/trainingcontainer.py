@@ -353,7 +353,7 @@ class TrainingStorage(StructureStorage):
         brk = int(len(self) * train_size)
         if brk in (0, 1):
             raise ValueError(
-                    f"container not large enough to realize this split, only multiples of {1/len(self)} possible!"
+                f"container not large enough to realize this split, only multiples of {1/len(self)} possible!"
             )
 
         # somewhat inefficient, but probably good enough for normal training set sizes
@@ -362,8 +362,8 @@ class TrainingStorage(StructureStorage):
         train_idx = idx[:brk]
         test_idx = idx[brk:]
         return (
-                self.sample(lambda f, i: i in train_idx),
-                self.sample(lambda f, i: i in test_idx),
+            self.sample(lambda f, i: i in train_idx),
+            self.sample(lambda f, i: i in test_idx),
         )
 
 
@@ -633,9 +633,15 @@ class TrainingContainer(GenericJob, HasStructure):
         """
         yield from self._container.iter(*arrays, wrap_atoms=wrap_atoms)
 
-    def train_test_split(self, train_size: float, seed=None,
-                         run: bool = True,
-                         train_name: str = None, test_name: str = None, project=None):
+    def train_test_split(
+        self,
+        train_size: float,
+        seed=None,
+        run: bool = True,
+        train_name: str = None,
+        test_name: str = None,
+        project=None,
+    ):
         """
         Split into two random sub sets for training and testing.
 
