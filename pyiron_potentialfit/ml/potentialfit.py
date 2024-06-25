@@ -88,8 +88,19 @@ class PotentialFit(abc.ABC):
     def plot(self):
         """
         Plots correlation and (training) error histograms.
+
+        See :class:`.PotentialPlots`.
         """
         return PotentialPlots(self.training_data, self.predicted_data)
+
+    @property
+    def metrics(self):
+        """
+        Calculate error (training) metrics.
+
+        See :class:`.PotentialMetrics`.
+        """
+        return PotentialMetrics(self.training_data, self.predicted_data)
 
     @abc.abstractmethod
     def get_lammps_potential(self) -> pd.DataFrame:
@@ -291,3 +302,49 @@ class PotentialPlots:
             "Angular Deviation of Force [" + ["rad", "deg"][angle_in_degrees] + "]"
         )
         plt.ylabel("Count")
+
+
+class PotentialMetrics:
+    """
+    Calculates various error metrics on training and test data.
+    """
+
+    __slots__ = ("_true_data", "_predicted_data")
+
+    def __init__(self, true_data: TrainingStorage, predicted_data: FlattenedStorage):
+        self._true_data = true_data
+        self._predicted_data = predicted_data
+
+    def _rmse(self, a, b):
+        return np.sqrt(np.mean((a - b) ** 2))
+
+    def _mae(self, a, b):
+        return np.mean(np.abs(a - b))
+
+    @property
+    def energy_rmse(self):
+        N = self._true_data["length"]
+        return self._rmse(
+            self._true_data["energy"] / N, self._predicted_data["energy"] / N
+        )
+
+    @property
+    def energy_mae(self):
+        N = self._true_data["length"]
+        return self._mae(
+            self._true_data["energy"] / N, self._predicted_data["energy"] / N
+        )
+
+    @property
+    def force_rmse(self):
+        return self._rmse(
+            np.linalg.norm(self._true_data["forces"], axis=-1),
+            np.linalg.norm(self._predicted_data["forces"], axis=-1),
+        )
+
+    @property
+    def force_mae(self):
+        return self._mae(
+            np.linalg.norm(self._true_data["forces"], axis=-1),
+            np.linalg.norm(self._predicted_data["forces"], axis=-1),
+        )
