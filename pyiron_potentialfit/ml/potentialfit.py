@@ -226,7 +226,7 @@ class PotentialPlots:
         rmse = np.sqrt((df**2).mean())
         mae = df.mean()
         high = df.max()
-        low = df.min()
+        low = np.clip(df.min(), 1e-8, np.inf)
 
         ax = plt.gca()
         trafo = ax.get_xaxis_transform()
@@ -244,7 +244,7 @@ class PotentialPlots:
             )
 
         plt.hist(
-            df, bins=np.logspace(np.log10(low + 1e-8), np.log10(high), bins), log=logy
+            df, bins=np.logspace(np.log10(low), np.log10(high), bins), log=logy
         )
         plt.xscale("log")
         annotated_vline(rmse, f"RMSE = {rmse:.02}")
