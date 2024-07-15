@@ -115,6 +115,7 @@ def _scatter(x, y):
         plt.scatter(x, y, marker='.')
     else:
         plt.hexbin(x, y, bins='log')
+        plt.colorbar(label="Observations")
 
 def _annotated_vline(x, text, trafo, linestyle="--"):
     plt.axvline(x, color="k", linestyle=linestyle)
@@ -298,3 +299,36 @@ class PotentialPlots:
             "Angular Deviation of Force [" + ["rad", "deg"][angle_in_degrees] + "]"
         )
         plt.ylabel("Count")
+
+    def force_angle_norm_scatter(
+        self,
+        tol: float = 1e-6,
+        angle_in_degrees=True,
+    ):
+        """
+        Plot scatter between norm of true forces and angular deviation between
+        true and predicted forces.
+
+        Args:
+            tol (float): consider forces smaller than this zero (and obmit them from the histogram)
+            angle_in_degrees (bool): if True use degrees, otherwise radians
+        """
+        force_train = self._training_data["forces"]
+        force_pred = self._predicted_data["forces"]
+
+        force_norm_train = np.linalg.norm(force_train, axis=-1).reshape(-1, 1)
+        force_norm_pred = np.linalg.norm(force_pred, axis=-1).reshape(-1, 1)
+
+        I = ((force_norm_train > tol) & (force_norm_pred > tol)).reshape(-1)
+
+        force_dir_train = force_train[I] / force_norm_train[I]
+        force_dir_pred = force_pred[I] / force_norm_pred[I]
+
+        err = np.arccos((force_dir_train * force_dir_pred).sum(axis=-1).round(8))
+        if angle_in_degrees:
+            err = np.rad2deg(err)
+        _scatter(force_norm_train[I, 0], err)
+        plt.xlabel(r"True Force Norm [eV/$\mathrm{\AA}$]")
+        plt.ylabel(
+            "Angular Deviation of Force [" + ["rad", "deg"][angle_in_degrees] + "]"
+        )
