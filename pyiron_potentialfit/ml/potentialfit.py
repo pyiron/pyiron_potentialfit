@@ -283,7 +283,7 @@ class PotentialPlots:
         force_norm_train = np.linalg.norm(force_train, axis=-1).reshape(-1, 1)
         force_norm_pred = np.linalg.norm(force_pred, axis=-1).reshape(-1, 1)
 
-        I = ((force_norm_train > tol) & (force_norm_train > tol)).reshape(-1)
+        I = ((force_norm_train > tol) & (force_norm_pred > tol)).reshape(-1)
 
         force_dir_train = force_train[I] / force_norm_train[I]
         force_dir_pred = force_pred[I] / force_norm_pred[I]
