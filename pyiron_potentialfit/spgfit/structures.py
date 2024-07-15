@@ -35,7 +35,8 @@ from .projectflow import (
     RunAgain,
     WorkflowProjectConfig,
 )
-from .util import RCORE, DistanceFilter, fast_forward
+from .util import RCORE, DistanceFilter, fast_forward, ServerConfig
+from .vasp import Kpoints, Kspacing, VaspConfig
 
 from pyiron_contrib.jobfactories import VaspFactory
 from pyiron_contrib.repair import HandyMan
@@ -165,7 +166,7 @@ def extract_structure(jobpath, frame):
     return structure
 
 
-from traitlets import Instance, Float, Bool, Int, CaselessStrEnum
+from traitlets import Instance, Float, Bool, Int, CaselessStrEnum, Dict
 
 
 class MinimizeVaspInput(Input):
@@ -179,7 +180,9 @@ class MinimizeVaspInput(Input):
 
     encut = Float(default_value=None, allow_none=True)
     kspacing = Float(default_value=0.5)
-    use_symmetry = Bool(defaul_value=False)
+    use_symmetry = Bool(default_value=False)
+
+    vasp_config = Dict(default_value={})
 
     cores = Int(default_value=10)
     run_time = Float(default_value=1 * 60 * 60)
@@ -191,6 +194,9 @@ class MinimizeVaspFlow(ProjectFlow):
 
     def _run(self, delete_existing_job=False, delete_aborted_job=True):
         sflow = StructureProjectFlow()
+
+        # ugly little dance to avoid having to implement HDF for dataclasses correctly
+        vasp_config = VaspConfig(**self.input.vasp_config)
 
         vasp = VaspFactory()
         # AlH specific hack, VaspFactory ignores this for other structures automatically
@@ -217,7 +223,14 @@ class MinimizeVaspFlow(ProjectFlow):
             ), f"DoF cannot be {self.input.degrees_of_freedom}, traitlets broken?"
 
         sflow.input.job = vasp
-        sflow.input.structures = self.input.structures.copy()
+        if vasp_config.magmoms is not None:
+            def apply_magmom(structure):
+                return structure.copy().set_initial_magnetic_moments(
+                        [vasp_config.magmoms.get(sym, 0.0) for sym in structure.symbols]
+                )
+            sflow.input.structures = self.input.structures.transform_structures(apply_magmom)
+        else:
+            sflow.input.structures = self.input.structures.copy()
         sflow.input.table_setup = lambda tab: tab
 
         sflow.attach(self.project, "structures").run()
@@ -315,6 +328,9 @@ class TrainingDataConfig:
     min_dist: float = None
     delete_existing_job: bool = False
 
+    vasp: VaspConfig = VaspConfig(encut=None, kmesh=Kspacing(0.5))
+    server: ServerConfig = ServerConfig(cores=10, run_time=5*60, queue='cmti')
+
 
 class State(Enum):
     """
@@ -374,6 +390,8 @@ def create_structure_set(
                 "volume",
                 conf.trace,
                 conf.min_dist,
+                conf.vasp,
+                conf.server,
                 delete_existing_job=conf.delete_existing_job,
             )
         except RunAgain:
@@ -390,6 +408,8 @@ def create_structure_set(
                 "all",
                 conf.trace,
                 conf.min_dist,
+                conf.vasp,
+                conf.server,
                 delete_existing_job=conf.delete_existing_job,
             )
         except RunAgain:
@@ -583,7 +603,10 @@ def spg(
             return vecs.max() / vecs.min() < 6
 
         # very few structures with low distances seem to slip through pyxtals checks, so double check here
-        distance_filter = DistanceFilter()
+        if min_dist is None:
+            distance_filter = DistanceFilter()
+        else:
+            distance_filter = DistanceFilter({e: min_dist/2 for e in elements})
         el, ni = zip(*((el, ni) for el, ni in zip(elements, num_ions) if ni > 0))
         # missing checker support
         # pr.create.structure.pyxtal(
@@ -607,6 +630,8 @@ def minimize(
     degrees_of_freedom,
     trace,
     min_dist,
+    vasp: VaspConfig,
+    server: ServerConfig,
     delete_existing_job=False,
 ):
     logger = getLogger("structures")
@@ -621,10 +646,12 @@ def minimize(
         if flow.input.read_only:
             flow.input.unlock()
         flow.input.structures = cont._container.copy()
-        flow.input.kspacing = 0.5
+        # FIXME: join together
+        flow.input.vasp_config = asdict(vasp)
+        flow.input.kspacing = vasp.kmesh.kspacing
         flow.input.degrees_of_freedom = degrees_of_freedom
-        flow.input.cores = 10
-        flow.input.run_time = 5 * 60
+        flow.input.cores = server.cores
+        flow.input.run_time = server.run_time
         flow.run(delete_existing_job=delete_existing_job)
         raise RunAgain("Just starting!")
 
@@ -687,7 +714,10 @@ def rattle(
             rand,
             repetitions=rattle_repetitions,
             combine=2,
-            modifiers=((1, shake(rattle_disp)), (1, stretch(rattle_strain))),
+            modifiers=(
+                (1, shake(rattle_disp)),
+                (1, stretch(rattle_strain))
+            ),
             min_dist=min_dist,
         )
         logger.info("added %i rattle structures", rand.number_of_structures - N)
@@ -861,6 +891,17 @@ def main():
         help="Optionally specify a directory where to dump POSCAR files with the generated structures after everything "
              "is finished."
     )
+    parser.add_argument(
+        "--magmom", nargs=2, action="append", default=[],
+        help="Initial magnetic moments as `element symbol`, followed by the collinear magnetic moment; all atoms of "
+             "the same element will be initialized the same; may be given multiple times, once per element"
+    )
+
+    parser.add_argument(
+        "--cores", type=int, default=10,
+        help="Number of cores to use per job during minimizations"
+    )
+
     args = parser.parse_args()
 
     pr = Project(args.project)
@@ -871,8 +912,18 @@ def main():
     del conf["stretch"]
     del conf["project"]
     del conf["fast_forward"]
+    del conf["magmom"]
+    del conf["cores"]
     conf = {k: v for k, v in conf.items() if v is not None}
     conf = TrainingDataConfig(**conf)
+
+    for (el, mm) in args.magmom:
+        mm = float(mm)
+        if el not in args.elements:
+            raise ValueError(f"Elements for magmoms, must be also given via -e, not {el}!")
+        conf.vasp.magmoms[el] = mm
+
+    conf.server.cores = args.cores
 
     state = pr.data.get("state", "spg")
     # old_conf = pr.data.get('config', {})

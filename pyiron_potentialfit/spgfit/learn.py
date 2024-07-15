@@ -65,7 +65,7 @@ def broadcast(*names):
 @broadcast("rmin", "rmax", "level")
 def fit(
     fit_pr: Project,
-    train: TrainingContainer,
+    training_containers: Union[TrainingContainer, Iterable[TrainingContainer]],
     rmin: Union[float, Iterable[float]],
     rmax: Union[float, Iterable[float]],
     level: Union[int, Iterable[int]],
@@ -79,12 +79,13 @@ def fit(
     """
     Fit a potential to the given structures.
 
-    If rmin, rmax or level are iterables the function is broadcasted
-    over them.
+    If `rmin`, `rmax` or `level` are iterables the function is broadcasted
+    over them. `training_containers` is *not* broadcasted, instead all given
+    training containers are combined.
 
     Args:
         fit_pr (Project): project that contains the fitting jobs
-        train (TrainingContainer): container that keeps all the structures
+        training_containers (TrainingContainer, Iterable[TrainingContainer]): container that keeps all the structures
         rmin (float, Iterable[float]): lower cut off of the potential
         rmax (float, Iterable[float]): upper cut off of the potential
         level (int, Iterable[int]): level of the potential
@@ -95,7 +96,15 @@ def fit(
                       refit
         delete_existing_job (float): remove old job before creating new one
     """
-    pr = fit_pr.create_group(train.name)
+    if isinstance(training_containers, TrainingContainer):
+        training_containers = (training_containers,)
+    else:
+        training_containers = tuple(training_containers)
+    train_name = "_".join(train.name for train in training_containers)
+    train_number_of_structures = sum(
+            train.number_of_structures for train in training_containers
+    )
+    pr = fit_pr.create_group(train_name)
 
     name = [f"MTP{level:02}", round(rmin, 2), round(rmax, 2)]
     if iterations is not None:
@@ -131,13 +140,14 @@ def fit(
             j.server.cores = 80
         else:
             j.server.cores = 120
-        j.server.run_time = 0.5 * level * train.number_of_structures
+        j.server.run_time = 0.5 * level * train_number_of_structures
         j.run()
         return pr
     if not j.status.initialized:
         return pr
 
-    j.add_job_to_fitting(train.id, 0, train.number_of_structures - 1, 1)
+    for train in training_containers:
+        j.add_job_to_fitting(train.id, 0, train.number_of_structures - 1, 1)
     j.input["potential"] = level
     j.input["min_dist"] = rmin
     j.input["max_dist"] = rmax
@@ -156,8 +166,8 @@ def fit(
         j.server.cores = 40
     else:
         j.server.cores = 80
-    j.server.cores *= int(np.ceil(train.number_of_structures / 20_000))
-    j.server.run_time = 0.5 * level * train.number_of_structures
+    j.server.cores *= int(np.ceil(train_number_of_structures / 20_000))
+    j.server.run_time = 0.5 * level * train_number_of_structures
     j.server.cores = min(j.server.cores, 8 * 40)
     j.run()
 

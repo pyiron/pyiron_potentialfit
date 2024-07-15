@@ -4,6 +4,7 @@ Yet another attempt to get project based workflows right.
 
 import abc
 import codecs, dill
+import dataclasses
 from dataclasses import dataclass
 from copy import copy, deepcopy
 from hashlib import md5
@@ -292,6 +293,7 @@ class ProjectFlow(HasHDF, abc.ABC):
         logger = getLogger()
         logger.setLevel(INFO)
 
+        self.project.refresh_job_status()
         if self.considered_empty() or config.delete_existing_job:
             logger.info("empty project, running from scratch")
             if_new(self)
@@ -320,6 +322,9 @@ class ProjectFlow(HasHDF, abc.ABC):
         if self.considered_finished(threshold=config.finished_threshold):
             logger.info("finished")
             return if_finished(self)
+
+        # BUG: if we are neither broken nor finished and have no running jobs
+        # we run into a deadlock here.
 
         logger.info("still running; try later")
         raise RunAgain("Still Running!")
