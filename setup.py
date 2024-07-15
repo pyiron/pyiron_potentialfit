@@ -35,7 +35,7 @@ setup(
         'matplotlib==3.8.4',
         'numpy==1.26.4',
         'pyiron_base==0.9.6',
-        'scipy==1.13.1',
+        'scipy==1.14.0',
         'runnerase==0.3.3',
         'pyiron_snippets==0.1.1',
         # spgfit
