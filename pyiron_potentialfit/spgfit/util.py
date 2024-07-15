@@ -116,17 +116,21 @@ class DistanceFilter:
 
 def get_table(pr, table_name, add=None, delete_existing_job=False):
     if table_name in pr.list_nodes() and not delete_existing_job:
-        tab = pr.load(table_name)
-        tab.update_table()
-        return tab
-    else:
-        if add is None:
-            raise ValueError("add cannot be None on first run!")
-        tab = pr.create_table(table_name, delete_existing_job=delete_existing_job)
-        add(tab)
-        tab.run()
-        return tab
-
+        try:
+            tab = pr.load(table_name)
+            tab.update_table()
+            return tab
+        except TypeError as err:
+            # table failed to unpickle its functions, just recreate
+            if err.args[0] != "code() argument 13 must be str, not int":
+                raise
+            pr.remove_job(table_name)
+    if add is None:
+        raise ValueError('add cannot be None on first run!')
+    tab = pr.create_table(table_name, delete_existing_job=delete_existing_job)
+    add(tab)
+    tab.run()
+    return tab
 
 def read_generic_parameters(hdf, key):
     gp = GenericParameters(table_name="data_dict")
