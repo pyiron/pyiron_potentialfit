@@ -102,6 +102,31 @@ class PotentialFit(abc.ABC):
         """
         pass
 
+def _scatter(x, y):
+    """
+    Adaptive scatter plot.
+
+    Normal markers for less than 100 data, smaller for less than 1000 and
+    hexbin on a log scale for any more.
+    """
+    if len(x) < 100:
+        plt.scatter(x, y)
+    elif len(x) < 1000:
+        plt.scatter(x, y, marker='.')
+    else:
+        plt.hexbin(x, y, bins='log')
+
+def _annotated_vline(x, text, trafo, linestyle="--"):
+    plt.axvline(x, color="k", linestyle=linestyle)
+    plt.text(
+        x=x,
+        y=0.5,
+        s=text,
+        transform=trafo,
+        rotation="vertical",
+        horizontalalignment="center",
+        path_effects=[withStroke(linewidth=4, foreground="w")],
+    )
 
 class PotentialPlots:
     def __init__(self, training_data, predicted_data):
@@ -112,13 +137,16 @@ class PotentialPlots:
         """
         Plots correlation and (training) error histograms.
 
+        Scatter plot uses normal markers for less than 100 data, smaller for
+        less than 1000 and hexbin on a log scale for any more.
+
         Args:
             logy (bool): Use log scale for histogram heights
         """
         energy_train = self._training_data["energy"] / self._training_data["length"]
         energy_pred = self._predicted_data["energy"] / self._predicted_data["length"]
         plt.subplot(1, 2, 1)
-        plt.scatter(energy_train, energy_pred)
+        _scatter(energy_train, energy_pred)
 
         plt.xlabel("True Energy Per Atom [eV / atom]")
         plt.ylabel("Predicted Energy Per Atom [eV / atom]")
@@ -151,29 +179,20 @@ class PotentialPlots:
         ax = plt.gca()
         trafo = ax.get_xaxis_transform()
 
-        def annotated_vline(x, text, linestyle="--"):
-            plt.axvline(x, color="k", linestyle=linestyle)
-            plt.text(
-                x=x,
-                y=0.5,
-                s=text,
-                transform=trafo,
-                rotation="vertical",
-                horizontalalignment="center",
-                path_effects=[withStroke(linewidth=4, foreground="w")],
-            )
-
         plt.hist(de, bins=np.logspace(np.log10(low), np.log10(high), bins), log=logy)
         plt.xscale("log")
-        annotated_vline(rmse, f"RMSE = {rmse:.02}")
-        annotated_vline(mae, f"MAE = {mae:.02}")
-        annotated_vline(high, f"HIGH = {high:.02}", linestyle="-")
-        annotated_vline(low, f"LOW = {low:.02}", linestyle="-")
+        _annotated_vline(rmse, f"RMSE = {rmse:.02}", trafo)
+        _annotated_vline(mae, f"MAE = {mae:.02}", trafo)
+        _annotated_vline(high, f"HIGH = {high:.02}", trafo, linestyle="-")
+        _annotated_vline(low, f"LOW = {low:.02}", trafo, linestyle="-")
         plt.xlabel("Training Error [eV/atom]")
 
     def force_scatter_histogram(self, axis=None, logy=False):
         """
         Plots correlation and (training) error histograms.
+
+        Scatter plot uses normal markers for less than 100 data, smaller for
+        less than 1000 and hexbin on a log scale for any more.
 
         Args:
             axis (None, int): Whether to plot for an axis or norm
@@ -190,7 +209,7 @@ class PotentialPlots:
             fp = force_pred[:, axis]
 
         plt.subplot(1, 2, 1)
-        plt.scatter(ft, fp)
+        _scatter(ft, fp)
         plt.xlabel("True Forces [eV/$\mathrm{\AA}$]")
         plt.ylabel("Predicted Forces [eV/$\AA$]")
         plt.subplot(1, 2, 2)
@@ -231,26 +250,14 @@ class PotentialPlots:
         ax = plt.gca()
         trafo = ax.get_xaxis_transform()
 
-        def annotated_vline(x, text, linestyle="--"):
-            plt.axvline(x, color="k", linestyle=linestyle)
-            plt.text(
-                x=x,
-                y=0.5,
-                s=text,
-                transform=trafo,
-                rotation="vertical",
-                horizontalalignment="center",
-                path_effects=[withStroke(linewidth=4, foreground="w")],
-            )
-
         plt.hist(
             df, bins=np.logspace(np.log10(low), np.log10(high), bins), log=logy
         )
         plt.xscale("log")
-        annotated_vline(rmse, f"RMSE = {rmse:.02}")
-        annotated_vline(mae, f"MAE = {mae:.02}")
-        annotated_vline(high, f"HIGH = {high:.02}", linestyle="-")
-        annotated_vline(low, f"LOW = {low:.02}", linestyle="-")
+        _annotated_vline(rmse, f"RMSE = {rmse:.02}", trafo)
+        _annotated_vline(mae, f"MAE = {mae:.02}", trafo)
+        _annotated_vline(high, f"HIGH = {high:.02}", trafo, linestyle="-")
+        _annotated_vline(low, f"LOW = {low:.02}", trafo, linestyle="-")
         plt.xlabel("Training Error [eV/$\mathrm{\AA}$]")
 
     def force_angle_histogram(
