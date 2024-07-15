@@ -220,27 +220,6 @@ class AtomicrexBase(GenericJob, PotentialFit):
         self.potential.write_xml_file(directory=directory)
         self.structures.write_xml_file(directory=directory)
 
-    def _executable_activate(self, enforce=False):
-        """
-        Internal function that sets up and Executable() object
-        and finds executables available in pyiron resources/atomicrex/bin
-
-        Args:
-            enforce (bool, optional): [description]. Defaults to False.
-        """
-        if self._executable is None or enforce:
-            if len(self.__module__.split(".")) > 1:
-                self._executable = Executable(
-                    codename=self.__name__,
-                    module=self.__module__.split(".")[-2],
-                    path_binary_codes=state.settings.resource_paths,
-                )
-            else:
-                self._executable = Executable(
-                    codename=self.__name__,
-                    path_binary_codes=state.settings.resource_paths,
-                )
-
     # Leftover of the potentials workshop.
     # Maybe this property will be used in unified interface
     # to several fitting codes in the future
