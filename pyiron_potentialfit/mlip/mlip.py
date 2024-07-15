@@ -88,10 +88,17 @@ class Mlip(GenericJob, PotentialFit):
 
     @property
     def potential_files(self):
+        if not self.status.finished:
+            return []
         pot = os.path.join(self.working_directory, "Trained.mtp_")
         states = os.path.join(self.working_directory, "state.mvs")
-        if os.path.exists(pot) and os.path.exists(states):
-            return [pot, states]
+        if not (os.path.exists(pot) and os.path.exists(states)):
+            raise RuntimeError("Potential files not created!")
+        ini = os.path.join(self.working_directory, "mlip.ini")
+        if not os.path.exists(ini):
+            with open(ini, "w") as f:
+                f.write("mtp-filename Trained.mtp_\nselect FALSE\n")
+        return [pot, states, ini]
 
     def _get_elements(self):
         """
