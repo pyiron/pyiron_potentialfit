@@ -55,20 +55,6 @@ class Mlip(GenericJob, PotentialFit):
         self._command_line = CommandLine()
         self._potential = MtpPotential()
 
-    def _executable_activate(self, enforce=False):
-        if self._executable is None or enforce:
-            if len(self.__module__.split(".")) > 1:
-                self._executable = Executable(
-                    codename=self.__name__,
-                    module=self.__module__.split(".")[-2],
-                    path_binary_codes=state.settings.resource_paths,
-                )
-            else:
-                self._executable = Executable(
-                    codename=self.__name__,
-                    path_binary_codes=state.settings.resource_paths,
-                )
-
     @property
     def calculation_dataframe(self):
         (
