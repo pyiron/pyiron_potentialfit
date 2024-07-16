@@ -738,6 +738,21 @@ def rattle(
     return rand
 
 
+def run(pr: Project, config: TrainingDataConfig, wait_time=60):
+    """
+    Create a new structure set.
+
+    Simply calls :func:`.create_structure_set` in a loop until finished.
+
+    Args:
+        pr (Project): project to run the calculations in
+        config (TrainingDataConfig): parameters for structure set
+        wait_time (int): how many seconds to sleep between calling :func:`.create_structure_set`.
+    """
+    state = State.SPG
+    while (state := create_structure_set(pr, state, conf, fast_forward=True)) != State.FINISHED:
+        time.sleep(wait_time)
+
 epilog = """
 Follows the systematic approach reported in this paper[1].  Execution is
 organized in four steps:
