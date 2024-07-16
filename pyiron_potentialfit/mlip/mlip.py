@@ -47,6 +47,7 @@ gpa_to_ev_ang = (
 class Mlip(GenericJob, PotentialFit):
     def __init__(self, project, job_name):
         super(Mlip, self).__init__(project, job_name)
+        state.publications.add(self.publication)
         self.__version__ = "0.1.0"
         self.__name__ = "Mlip"
         self._executable_activate()
@@ -54,6 +55,28 @@ class Mlip(GenericJob, PotentialFit):
         self.input = MlipParameter()
         self._command_line = CommandLine()
         self._potential = MtpPotential()
+
+    @property
+    def publication(self):
+        return {
+            "mlip": {
+                "mlip": {
+                    "title": "The MLIP package: moment tensor potentials with MPI and active learning",
+                    "journal": "Machine Learning: Science and Technology",
+                    "volume": "2",
+                    "number": "2",
+                    "year": "2020",
+                    "doi": "10.1088/2632-2153/abc9fe",
+                    "url": "https://iopscience.iop.org/article/10.1088/2632-2153/abc9fe",
+                    "author": [
+                        "Ivan S Novikov",
+                        "Konstantin Gubaev",
+                        "Evgeny V Podryabinkin",
+                        "Alexander V Shapeev",
+                    ],
+                }
+            }
+        }
 
     def _executable_activate(self, enforce=False):
         if self._executable is None or enforce:
