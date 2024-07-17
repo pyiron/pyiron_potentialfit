@@ -902,9 +902,10 @@ def main():
         help="Retry the current step from scratch",
     )
     parser.add_argument(
-        "--export", type=str,
+        "--export",
+        type=str,
         help="Optionally specify a directory where to dump POSCAR files with the generated structures after everything "
-             "is finished."
+        "is finished.",
     )
     parser.add_argument(
         "--magmom", nargs=2, action="append", default=[],
@@ -958,7 +959,11 @@ def main():
             dir_path = os.path.join(args.export, cont.name)
             os.makedirs(dir_path, exist_ok=True)
             for i, s in enumerate(cont.iter_structures()):
-                s.write(os.path.join(dir_path, cont._container["identifier", i]) + ".POSCAR", format="vasp")
+                s.write(
+                    os.path.join(dir_path, cont._container["identifier", i])
+                    + ".POSCAR",
+                    format="vasp",
+                )
 
 
 if __name__ == "__main__":

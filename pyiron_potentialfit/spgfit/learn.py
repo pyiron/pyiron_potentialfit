@@ -264,7 +264,7 @@ def energy_mae(j):
     N = inpt.get_array("length")
     train = np.squeeze(inpt.get_array("energy")) / N
     pred = np.squeeze(j["output/training_efs"].to_object().get_array("energy")) / N
-    return np.abs(train-pred).mean()
+    return np.abs(train - pred).mean()
 
 
 def energy_max(j):
