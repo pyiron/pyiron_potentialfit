@@ -37,9 +37,9 @@ class VaspConfig:
     version: Optional[str] = None
 
     # element to initial collinear magmom
-    magmoms: Optional[Dict[str, float]] = None
+    magmoms: Optional[Dict[str, float]] = field(default_factory=dict)
     # element to POTCAR path
-    potcars: Optional[Dict[str, str]] = None
+    potcars: Optional[Dict[str, str]] = field(default_factory=dict)
 
     def __post_init__(self):
         match self.kmesh:
@@ -65,7 +65,7 @@ class VaspConfig:
             except AttributeError:
                 # called on a VaspFactory instead of a Vasp job
                 job.incar[k] = v
-        if self.vasp.version is not None:
+        if self.version is not None:
             try:
                 job.version = self.version
             except AttributeError:

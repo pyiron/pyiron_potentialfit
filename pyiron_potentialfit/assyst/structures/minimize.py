@@ -7,11 +7,15 @@ from ..projectflow import (
     ProjectFlow,
     StructureProjectFlow,
     Input,
+    Output,
     RunAgain,
     WorkflowProjectConfig,
 )
 
-from pyiron_potentialfit.atomistics.job.trainingcontainer import TrainingContainer
+from pyiron_potentialfit.atomistics.job.trainingcontainer import (
+        TrainingContainer,
+        TrainingStorage,
+)
 from pyiron_atomistics.atomistics.structure.structurestorage import StructureStorage
 from pyiron_atomistics.atomistics.job.structurecontainer import StructureContainer
 from pyiron_contrib.jobfactories import VaspFactory
@@ -27,20 +31,28 @@ class MinimizeVaspInput(Input):
         values=["volume", "cell", "all", "internal"], default_value="volume"
     )
 
-    # encut = Float(default_value=None, allow_none=True)
-    kspacing = Float(default_value=0.5)
-    # use_symmetry = Bool(default_value=False)
-
     vasp_config = Dict(default_value={})
     server_config = Dict(default_value={})
 
+    # old flags; by now fully absorbed into vasp/server config, but keep around in case backwards compat is a pain
+    # kspacing = Float(default_value=0.5)
+    # encut = Float(default_value=None, allow_none=True)
+    # use_symmetry = Bool(default_value=False)
     # cores = Int(default_value=10)
     # run_time = Float(default_value=1 * 60 * 60)
 
+    number_of_structures = Int(default_value=1)
+    min_dist = Float(default_value=None, allow_none=True)
+    accept_not_converged = Int(default_value=False)
+
+class MinimizeOutput(Output):
+    final_structures = Instance(TrainingStorage, args=())
+    trace_structures = Instance(TrainingStorage, args=())
 
 class MinimizeVaspFlow(ProjectFlow):
 
     Input = MinimizeVaspInput
+    Output = MinimizeOutput
 
     def _run(self, delete_existing_job=False, delete_aborted_job=True):
         sflow = StructureProjectFlow()
@@ -67,13 +79,13 @@ class MinimizeVaspFlow(ProjectFlow):
             ), f"DoF cannot be {self.input.degrees_of_freedom}, traitlets broken?"
 
         sflow.input.job = vasp
-        if vasp_config.magmoms is not None:
+        if vasp_config.magmoms is not None and len(vasp_config.magmoms) > 0:
             def apply_magmom(structure):
                 structure.set_initial_magnetic_moments(
                         [vasp_config.magmoms.get(sym, 0.0) for sym in structure.symbols]
                 )
                 return structure
-            sflow.input.structures = self.input.structures.transform_structures(apply_magmom)
+            sflow.input.structures = self.input.structures.transform_structures(apply_magmom).collect_structures()
         else:
             sflow.input.structures = self.input.structures.copy()
         sflow.input.table_setup = lambda tab: tab
@@ -81,8 +93,33 @@ class MinimizeVaspFlow(ProjectFlow):
         sflow.attach(self.project, "structures").run()
 
     def _analyze(self, delete_existing_job=False):
-        # TODO: move both collects here and store structures in a custom Output
-        pass
+        if self.output.final_structures.number_of_structures > 0 and not delete_existing_job:
+            return
+        ok_status = ["finished"]
+        if self.input.accept_not_converged:
+            ok_status += ["not_converged", "warning"]
+        for j in self.project.iter_jobs(hamilton="Vasp", convert_to_object=False):
+            if j.status not in ok_status: continue
+
+            N = len(j["output/generic/steps"])
+            stride = max(N // self.input.number_of_structures, 1)
+            for i in range(1, N + 1, stride)[:self.input.number_of_structures]:
+                s = self._extract_structure(j, -i)
+                if (
+                    self.input.min_dist is not None
+                    and np.prod(s.get_neighbors(cutoff_radius=self.input.min_dist).distances.shape)
+                    > 0
+                ):
+                    continue
+                if self.input.number_of_structures == 1:
+                    name = j.name
+                else:
+                    name = f"{j.name}_step_{i}"
+                self.output.trace_structures.include_job(j, iteration_step=-i)
+                self.output.trace_structures["identifier", -1] = name
+                if i == 1:
+                    self.output.final_structures.include_job(j, iteration_step=-i)
+                    self.output.final_structures["identifier", -1] = name
 
     @staticmethod
     def _extract_structure(jobpath, frame):
@@ -107,75 +144,6 @@ class MinimizeVaspFlow(ProjectFlow):
                 pbc=jobpath["input/stguctuge/cell/pbc"],
             )
         return structure
-
-    def collect(
-        self,
-        name,
-        number_of_structures=1,
-        min_dist=None,
-        accept_not_converged=False,
-        delete_existing_job=False,
-    ) -> StructureContainer:
-        cont = self.project.create.job.StructureContainer(
-            name, delete_existing_job=delete_existing_job, delete_aborted_job=True
-        )
-        if cont.status.finished:
-            return cont
-
-        if accept_not_converged:
-            df = self.project.job_table(hamilton="Vasp")
-            df = df.query("status.isin(['finished', 'not_converged', 'warning'])")
-            jobs = map(self.project.inspect, tqdm(df.id))
-        else:
-            jobs = self.project.iter_jobs(
-                hamilton="Vasp", status="finished", convert_to_object=False
-            )
-
-        for j in jobs:
-            N = len(j["output/generic/steps"])
-            stride = max(N // number_of_structures, 1)
-            for i in range(1, N + 1, stride)[:number_of_structures]:
-                s = self._extract_structure(j, -i)
-                if (
-                    min_dist is not None
-                    and np.prod(s.get_neighbors(cutoff_radius=min_dist).distances.shape)
-                    > 0
-                ):
-                    continue
-                if number_of_structures == 1:
-                    name = j.name
-                else:
-                    name = f"{j.name}_step_{i}"
-                cont.add_structure(s, identifier=name, job_id=j.id, step=i)
-        cont.run()
-        return cont
-
-    def collect_training(
-        self, name, min_dist=None, delete_existing_job=False
-    ) -> TrainingContainer:
-        cont = self.project.create.job.TrainingContainer(
-            name, delete_existing_job=delete_existing_job, delete_aborted_job=True
-        )
-        if not cont.status.initialized:
-            return cont
-
-        cont.input.save_neighbors = False
-
-        jobs = self.project.iter_jobs(
-            hamilton="Vasp", status="finished", convert_to_object=False
-        )
-
-        for j in jobs:
-            s = self._extract_structure(j, -1)
-            if (
-                min_dist is not None
-                and np.prod(s.get_neighbors(cutoff_radius=min_dist).distances.shape) > 0
-            ):
-                continue
-            cont.include_job(j)
-        cont.run()
-        return cont
-
 
 def minimize(
     pr,
@@ -212,27 +180,24 @@ def minimize(
 
     def if_finished(flow):
         logger.info("collecting structures")
+        flow.analyze()
         if trace > 1:
             cont = pr["containers"].load(f"{flow.project.name}Trace")
             if cont is None:
-                cont = flow.collect(
-                    "Trace",
-                    min_dist=min_dist,
-                    number_of_structures=trace,
-                    accept_not_converged=True,
-                )
+                cont = flow.project.create.job.StructureContainer("Trace")
+                for i, s in enumerate(flow.output.trace_structures.iter_structures()):
+                    cont.add_structure(s, identifier=flow.output.trace_structures["identifier", i])
+                cont.run()
                 cont.copy_to(
                     pr.create_group("containers"),
                     new_job_name=f"{flow.project.name}Trace",
                 )
         cont = pr["containers"].load(flow.project.name)
         if cont is None:
-            cont = flow.collect(
-                "Final",
-                min_dist=min_dist,
-                number_of_structures=1,
-                accept_not_converged=True,
-            )
+            cont = flow.project.create.job.StructureContainer("Final")
+            for i, s in enumerate(flow.output.final_structures.iter_structures()):
+                cont.add_structure(s, identifier=flow.output.final_structures["identifier", i])
+            cont.run()
             cont.copy_to(pr.create_group("containers"), new_job_name=flow.project.name)
         return cont
 
