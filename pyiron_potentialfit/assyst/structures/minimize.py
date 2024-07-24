@@ -32,9 +32,10 @@ class MinimizeVaspInput(Input):
     # use_symmetry = Bool(default_value=False)
 
     vasp_config = Dict(default_value={})
+    server_config = Dict(default_value={})
 
-    cores = Int(default_value=10)
-    run_time = Float(default_value=1 * 60 * 60)
+    # cores = Int(default_value=10)
+    # run_time = Float(default_value=1 * 60 * 60)
 
 
 class MinimizeVaspFlow(ProjectFlow):
@@ -46,14 +47,13 @@ class MinimizeVaspFlow(ProjectFlow):
 
         # ugly little dance to avoid having to implement HDF for dataclasses correctly
         vasp_config = VaspConfig(**self.input.vasp_config)
+        server_config = ServerConfig(**self.input.server_config)
 
         vasp = VaspFactory()
         # AlH specific hack, VaspFactory ignores this for other structures automatically
         vasp.enable_nband_hack({"Al": 2, "H": 2})  # = 3/2 + 1/2 VASP default
         vasp_config.configure_vasp_job(vasp)
-        vasp.cores = self.input.cores
-        vasp.run_time = self.input.run_time
-        vasp.queue = "cmti"
+        server_config.configure_server_on_job(vasp)
 
         if self.input.degrees_of_freedom == "volume":
             vasp.minimize_volume()
@@ -196,6 +196,8 @@ def minimize(
 
     vasp.incar.setdefault("ISYM", 0)
     vasp.incar.setdefault("EDIFF", 1e-6)
+    if server.queue is None:
+        server.queue = "cmti"
 
     def if_new(flow):
         logger.info("starting from scratch")
@@ -204,8 +206,7 @@ def minimize(
         flow.input.structures = cont._container.copy()
         flow.input.vasp_config = asdict(vasp)
         flow.input.degrees_of_freedom = degrees_of_freedom
-        flow.input.cores = server.cores
-        flow.input.run_time = server.run_time
+        flow.input.server_config = asdict(server)
         flow.run(delete_existing_job=delete_existing_job)
         raise RunAgain("Just starting!")
 
