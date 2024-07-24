@@ -1,12 +1,17 @@
 from enum import Enum
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from typing import List, Union
+import time
+from io import StringIO
+from logging import getLogger
+from pprint import pprint
 
 from ..util import ServerConfig
 from ..vasp import VaspConfig, Kspacing
 from .random import rattle
 from .minimize import minimize
 from .spg import spg
+from ..projectflow import RunAgain
 
 from pyiron_base import Project
 
@@ -137,7 +142,7 @@ def create_structure_set(
 
 def run(pr, config):
     state = State.SPG
-    while (state := create_structure_set(pr, state, conf, True)) != State.FINISHED:
+    while (state := create_structure_set(pr, state, config, True)) != State.FINISHED:
         time.sleep(60)
 
 def export_structures(pr, export, ending, format):

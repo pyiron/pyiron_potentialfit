@@ -28,10 +28,13 @@ class Kspacing(KMeshSpec):
 
 @dataclass
 class VaspConfig:
-    encut: Optional[float]
+    encut: Optional[float] = None
     # if float interpreted as k mesh spacing
-    kmesh: Optional[Union[int, float, KMeshSpec]]
+    kmesh: Optional[Union[int, float, KMeshSpec]] = None
     incar: dict = field(default_factory=dict)
+
+    # pyiron executable version name
+    version: Optional[str] = None
 
     # element to initial collinear magmom
     magmoms: Optional[Dict[str, float]] = None
@@ -44,7 +47,7 @@ class VaspConfig:
                 self.kmesh = Kpoints(points)
             case float(spacing) | {"kspacing": spacing}:
                 self.kmesh = Kspacing(spacing)
-            case Kspacing(_) | Kpoints(_):
+            case Kspacing(_) | Kpoints(_) | None:
                 pass
             case val:
                 assert False, f"Invalid value {val}!"

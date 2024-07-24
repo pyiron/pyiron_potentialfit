@@ -1,4 +1,5 @@
-from traitlets import Instance, Float, Bool, Int, CaselessStrEnum, Dict
+from dataclasses import asdict
+from logging import getLogger
 
 from ..util import ServerConfig
 from ..vasp import VaspConfig
@@ -15,6 +16,7 @@ from pyiron_atomistics.atomistics.structure.structurestorage import StructureSto
 from pyiron_atomistics.atomistics.job.structurecontainer import StructureContainer
 from pyiron_contrib.jobfactories import VaspFactory
 
+from traitlets import Instance, Float, Bool, Int, CaselessStrEnum, Dict
 
 class MinimizeVaspInput(Input):
 
@@ -52,6 +54,8 @@ class MinimizeVaspFlow(ProjectFlow):
         vasp.incar["EDIFF"] = 1e-6
         if not self.input.use_symmetry:
             vasp.incar["ISYM"] = 0
+        for k, v in vasp_config.incar.items():
+            vasp.incar[k] = v
         if self.input.encut is not None:
             vasp.set_encut(self.input.encut)
         vasp.cores = self.input.cores
@@ -69,6 +73,8 @@ class MinimizeVaspFlow(ProjectFlow):
                 False
             ), f"DoF cannot be {self.input.degrees_of_freedom}, traitlets broken?"
 
+        if vasp_config.version is not None:
+            vasp.attr.version = vasp_config.version
         sflow.input.job = vasp
         if vasp_config.magmoms is not None:
             def apply_magmom(structure):
@@ -242,4 +248,5 @@ def minimize(
         broken_threshold=0.1,
         finished_threshold=0.9,
     )
-    return minf.check(config, if_new, if_finished)
+    return minf.check(config, if_new, if_finished,
+                      number_of_jobs=cont.number_of_structures)

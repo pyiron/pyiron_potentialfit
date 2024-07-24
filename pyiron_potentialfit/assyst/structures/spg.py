@@ -1,12 +1,17 @@
 from typing import Union, List, Tuple
+from logging import getLogger
+from itertools import product
 
+from pyiron_atomistics import ase_to_pyiron
 from pyiron_atomistics.atomistics.structure.atoms import Atoms
 from pyiron_atomistics.atomistics.structure.structurestorage import StructureStorage
 
+from tqdm.auto import tqdm
 from pyxtal import pyxtal
 from pyxtal.msg import Comp_CompatibilityError, VolumeError
 from pyxtal.tolerance import Tol_matrix
 
+from ..util import RCORE, DistanceFilter
 
 def _pyxtal(
     group: Union[int, List[int]],

@@ -112,6 +112,8 @@ class CalculationConfig:
             job.incar[k] = v
         job.set_eddrmm_handling(status="ignore")
         job.enable_nband_hack({"Al": 2, "H": 2})  # = 3/2 + 1/2 VASP default
+        if self.vasp.version is not None:
+            job.attr.version = self.vasp.version
         return job
 
     def get_job(self):
