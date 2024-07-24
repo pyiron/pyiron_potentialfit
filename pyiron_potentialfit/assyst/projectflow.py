@@ -350,6 +350,7 @@ class FunctionContainer(HasHDF):
 
     def _from_hdf(self, hdf, version=None):
         self.func = _from_pickle(hdf["dill"])
+        self.__doc__ = self.func.__doc__
 
     def __call__(self, *args, **kwargs):
         return self.func(*args, **kwargs)

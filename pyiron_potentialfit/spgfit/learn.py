@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 from tqdm.auto import tqdm
 
-from .util import get_table, read_generic_parameters
+from ..assyst.util import get_table, read_generic_parameters
 
 
 def broadcast(*names):

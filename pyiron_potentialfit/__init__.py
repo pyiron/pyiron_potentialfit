@@ -3,7 +3,10 @@ __all__ = []
 
 
 from pyiron_atomistics import Project
+
+
 from pyiron_base import JOB_CLASS_DICT
+from pyiron_base.project.maintenance import add_module_conversion
 
 
 # Make classes available for new pyiron version
@@ -24,6 +27,16 @@ JOB_CLASS_DICT.update(
     }
 )
 
+
+# for module in moved_potential_modules:
+add_module_conversion(
+        "pyiron_potentialfit.spgfit.structures",
+        "pyiron_potentialfit.assyst.structures"
+)
+add_module_conversion(
+        "pyiron_potentialfit.spgfit.projectflow",
+        "pyiron_potentialfit.assyst.projectflow"
+)
 
 from ._version import get_versions
 

@@ -13,9 +13,9 @@ from pyiron_contrib.jobfactories import VaspFactory
 
 from structuretoolkit import get_neighbors
 
-from .projectflow import StructureProjectFlow, WorkflowProjectConfig, RunAgain
-from .util import DistanceFilter, fast_forward, ServerConfig
-from .vasp import KMeshSpec, Kpoints, Kspacing, VaspConfig
+from ..assyst.projectflow import StructureProjectFlow, WorkflowProjectConfig, RunAgain
+from ..assyst.util import DistanceFilter, fast_forward, ServerConfig
+from ..assyst.vasp import KMeshSpec, Kpoints, Kspacing, VaspConfig
 
 from tqdm.auto import tqdm
 import numpy as np
