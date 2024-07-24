@@ -48,3 +48,17 @@ class VaspConfig:
                 pass
             case val:
                 assert False, f"Invalid value {val}!"
+
+    def configure_vasp_job(self, job):
+        if self.encut is not None:
+            job.set_encut(self.encut)
+        if self.kmesh is not None:
+            self.kmesh.configure(job)
+        for element, path in self.potcars.items():
+            job.potential[element] = path
+        for k, v in self.incar.items():
+            try:
+                job.input.incar[k] = v
+            except AttributeError:
+                # called on a VaspFactory instead of a Vasp job
+                job.incar[k] = v

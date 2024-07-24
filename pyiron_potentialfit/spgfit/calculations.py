@@ -82,41 +82,22 @@ class CalculationConfig:
 
     min_dist: Optional[float] = None
 
-    def configure_dft_job(self, job: Union[VaspFactory, "GenericDFTJob"]):
-        if self.vasp.encut is not None:
-            job.set_encut(self.vasp.encut)
-        kmesh = self.vasp.kmesh
-        if isinstance(kmesh, int):
-            job.set_kpoints([kmesh] * 3)
-        elif isinstance(kmesh, float):
-            job.set_kpoints(k_mesh_spacing=kmesh)
-        elif isinstance(kmesh, KMeshSpec):
-            kmesh.configure(job)
-        elif kmesh is None:
-            pass
-        else:
-            assert False, f"kpoints must be float/int/None, not {kmesh}"
-
-        self.server.configure_server_on_job(job)
-
-        return job
-
-    def configure_vasp_job(self, job: VaspFactory):
-        job = self.configure_dft_job(job)
-        job.incar["NCORE"] = max(20, self.server.cores)
-        # j.incar['LCHARG'] = '.FALSE.'
-        job.incar["EDIFF"] = 1e-8
-        job.incar["PREC"] = "Accurate"
-        job.incar["ALGO"] = "Normal"
-        for k, v in self.vasp.incar.items():
-            job.incar[k] = v
-        job.set_eddrmm_handling(status="ignore")
-        job.enable_nband_hack({"Al": 2, "H": 2})  # = 3/2 + 1/2 VASP default
-        return job
-
     def get_job(self):
         job = VaspFactory()
-        job = self.configure_vasp_job(job)
+        incar_defaults = {
+            "NCORE": max(20, self.server.cores),
+            # 'LCHARG': '.FALSE.',
+            "EDIFF": 1e-8,
+            "PREC": "Accurate",
+            "ALGO": "Normal",
+        }
+        for k, v in incar_defaults.items():
+            if k not in self.vasp.incar[k]:
+                self.vasp.incar[k] = v
+        job.enable_nband_hack({"Al": 2, "H": 2})  # = 3/2 + 1/2 VASP default
+        job.set_eddrmm_handling(status="ignore")
+        self.vasp.configure_vasp_job(job)
+        self.server.configure_server_on_job(job)
         return job
 
 
