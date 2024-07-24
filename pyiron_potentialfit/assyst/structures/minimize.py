@@ -27,9 +27,9 @@ class MinimizeVaspInput(Input):
         values=["volume", "cell", "all", "internal"], default_value="volume"
     )
 
-    encut = Float(default_value=None, allow_none=True)
+    # encut = Float(default_value=None, allow_none=True)
     kspacing = Float(default_value=0.5)
-    use_symmetry = Bool(default_value=False)
+    # use_symmetry = Bool(default_value=False)
 
     vasp_config = Dict(default_value={})
 
@@ -50,14 +50,7 @@ class MinimizeVaspFlow(ProjectFlow):
         vasp = VaspFactory()
         # AlH specific hack, VaspFactory ignores this for other structures automatically
         vasp.enable_nband_hack({"Al": 2, "H": 2})  # = 3/2 + 1/2 VASP default
-        vasp.incar["KSPACING"] = self.input.kspacing
-        vasp.incar["EDIFF"] = 1e-6
-        if not self.input.use_symmetry:
-            vasp.incar["ISYM"] = 0
-        for k, v in vasp_config.incar.items():
-            vasp.incar[k] = v
-        if self.input.encut is not None:
-            vasp.set_encut(self.input.encut)
+        vasp_config.configure_vasp_job(vasp)
         vasp.cores = self.input.cores
         vasp.run_time = self.input.run_time
         vasp.queue = "cmti"
@@ -73,8 +66,6 @@ class MinimizeVaspFlow(ProjectFlow):
                 False
             ), f"DoF cannot be {self.input.degrees_of_freedom}, traitlets broken?"
 
-        if vasp_config.version is not None:
-            vasp.attr.version = vasp_config.version
         sflow.input.job = vasp
         if vasp_config.magmoms is not None:
             def apply_magmom(structure):
@@ -203,14 +194,15 @@ def minimize(
     ]
     minf = MinimizeVaspFlow(pr, f"{cont.name}{n}")
 
+    vasp.incar.setdefault("ISYM", 0)
+    vasp.incar.setdefault("EDIFF", 1e-6)
+
     def if_new(flow):
         logger.info("starting from scratch")
         if flow.input.read_only:
             flow.input.unlock()
         flow.input.structures = cont._container.copy()
-        # FIXME: join together
         flow.input.vasp_config = asdict(vasp)
-        flow.input.kspacing = vasp.kmesh.kspacing
         flow.input.degrees_of_freedom = degrees_of_freedom
         flow.input.cores = server.cores
         flow.input.run_time = server.run_time
