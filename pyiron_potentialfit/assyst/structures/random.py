@@ -1,9 +1,11 @@
 from logging import getLogger
+from random import choices
 
 from pyiron_atomistics.atomistics.structure.structurestorage import StructureStorage
 from pyiron_atomistics.atomistics.job.structurecontainer import StructureContainer
 from pyiron_atomistics.atomistics.structure.has_structure import HasStructure
 
+import numpy as np
 from tqdm.auto import tqdm
 
 def shake(displacement=0.1):

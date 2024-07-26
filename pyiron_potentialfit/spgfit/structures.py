@@ -6,8 +6,6 @@ from logging import getLogger, INFO
 
 getLogger().setLevel(INFO)
 logger = getLogger("structures")
-from random import choices
-from itertools import product
 
 from pyiron_base import Project
 from pyiron_atomistics.atomistics.structure.has_structure import HasStructure

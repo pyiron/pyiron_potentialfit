@@ -3,6 +3,8 @@ import abc
 from dataclasses import dataclass, field
 from typing import Union, Optional, Dict, Tuple
 
+from pyiron_base import GenericJob
+
 @dataclass
 class KMeshSpec(abc.ABC):
     @abc.abstractmethod
@@ -66,7 +68,8 @@ class VaspConfig:
                 # called on a VaspFactory instead of a Vasp job
                 job.incar[k] = v
         if self.version is not None:
-            try:
+            if isinstance(job, GenericJob):
                 job.version = self.version
-            except AttributeError:
+            else:
+                # called on a VaspFactory instead of a Vasp job
                 job.attr.version = self.version

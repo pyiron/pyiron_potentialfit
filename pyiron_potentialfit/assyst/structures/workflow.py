@@ -5,6 +5,7 @@ import time
 from io import StringIO
 from logging import getLogger
 from pprint import pprint
+from itertools import count
 
 from ..util import ServerConfig
 from ..vasp import VaspConfig, Kspacing
@@ -140,10 +141,31 @@ def create_structure_set(
         state = State.FINISHED
     return state
 
-def run(pr, config):
-    state = State.SPG
-    while (state := create_structure_set(pr, state, config, True)) != State.FINISHED:
-        time.sleep(60)
+def run(pr: Project, config: TrainingDataConfig, tries: Optional[int] = 10, wait: int = 60):
+    """
+    Create structure set.
+
+    Repeatedly calls :func:`.create_structure_set` until it finishes.
+    Saves the current state in `pr.data` and resumes from last known state if called previously on the same project.
+
+    Args:
+        pr (Project): project to work in
+        config (TrainingDataConfig): parameters for structure creation
+        tries (int): how often to call :func:`.create_structure_set` on all containers; if None try indefinitely
+        wait (int): how long to wait in between calls to :func:`.create_structure_set`
+    """
+    state = pr.data.get("state", State.SPG)
+    if tries is None:
+        counter = count()
+    else:
+        counter = range(tries)
+    for i in counter:
+        pr.data.state = state = create_structure_set(pr, state, config, fast_forward=True)
+        pr.data.write()
+        if state == State.FINISHED:
+            break
+        if i + 1 < tries:
+            time.sleep(wait)
 
 def export_structures(pr, export, ending, format):
     os.makedirs(export, exist_ok=True)
