@@ -155,6 +155,8 @@ def run(pr: Project, config: TrainingDataConfig, tries: Optional[int] = 10, wait
         wait (int): how long to wait in between calls to :func:`.create_structure_set`
     """
     state = pr.data.get("state", State.SPG)
+    pr.data.config = config
+    pr.data.write()
     if tries is None:
         counter = count()
     else:
