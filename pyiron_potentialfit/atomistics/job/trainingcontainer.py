@@ -377,6 +377,7 @@ _HDF_KEYS = {
     "cell": "output/generic/cells",
     "positions": "output/generic/positions",
     "pbc": "input/structure/cell/pbc",
+    "spins": "output/generic/dft/final_magmoms",
 }
 
 _JOB_HDF_OVERLAY_KEYS = {
@@ -461,6 +462,7 @@ class TrainingStorage(StructureStorage):
         * `positions`: `output/generic/positions`
         * `species`: `input/structure/species`
         * `pbc`: `input/structure/cell/pbc`
+        * `spins`: `output/generic/dft/final_magmoms`
 
         Other keys are ignored.  All entries except `pbc` and `species` must
         lead to arrays that can be indexed by `iteration_step`.
@@ -480,42 +482,49 @@ class TrainingStorage(StructureStorage):
         """
 
         hdf_keys = _HDF_KEYS.copy()
-        hdf_keys.update(_JOB_HDF_OVERLAY_KEYS.get(job["NAME"], {}))
+        hdf_keys.update(_JOB_HDF_OVERLAY_KEYS.get(job.content["NAME"], {}))
 
         kwargs = {
-            "energy": job[hdf_keys["energy"]][iteration_step],
+            "energy": job.content[hdf_keys["energy"]][iteration_step],
         }
-        ff = job[hdf_keys["forces"]]
-        if ff is not None:
-            kwargs["forces"] = ff[iteration_step]
+        try:
+            kwargs["forces"] = job.content[hdf_keys["forces"]][iteration_step]
+        except KeyError:
+            pass
 
-        pp = job[hdf_keys["stress"]]
-        if pp is not None and len(pp) > 0:
-            stress = np.asarray(pp[iteration_step])
-            if stress.shape == (3, 3):
-                stress = np.array(
-                    [
-                        stress[0, 0],
-                        stress[1, 1],
-                        stress[2, 2],
-                        stress[1, 2],
-                        stress[0, 2],
-                        stress[0, 1],
-                    ]
-                )
-            kwargs["stress"] = stress
+        try:
+            pp = job.content[hdf_keys["stress"]]
+            if len(pp) > 0:
+                stress = np.asarray(pp[iteration_step])
+                if stress.shape == (3, 3):
+                    stress = np.array(
+                        [
+                            stress[0, 0],
+                            stress[1, 1],
+                            stress[2, 2],
+                            stress[1, 2],
+                            stress[0, 2],
+                            stress[0, 1],
+                        ]
+                    )
+                kwargs["stress"] = stress
+        except KeyError:
+            pass
 
-        ii = job[hdf_keys["indices"]]
-        if ii is not None:
-            indices = ii[iteration_step]
-        else:
+        try:
+            indices = job.content[hdf_keys["indices"]][iteration_step]
+        except KeyError:
             # not all jobs save indices again in the output, but all atomistic
             # jobs do it in the input
-            indices = job["input/structure/indices"]
-        species = np.asarray(job[hdf_keys["species"]])
-        cell = job[hdf_keys["cell"]][iteration_step]
-        positions = job[hdf_keys["positions"]][iteration_step]
-        pbc = job[hdf_keys["pbc"]]
+            indices = job.content["input/structure/indices"]
+        species = np.asarray(job.content[hdf_keys["species"]])
+        cell = job.content[hdf_keys["cell"]][iteration_step]
+        positions = job.content[hdf_keys["positions"]][iteration_step]
+        pbc = job.content[hdf_keys["pbc"]]
+        try:
+            kwargs["spins"] = np.array(job.content[hdf_keys["spins"]][iteration_step])
+        except KeyError:
+            pass
 
         self.add_chunk(
             len(indices),
