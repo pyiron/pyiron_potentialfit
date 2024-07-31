@@ -1,11 +1,13 @@
 from enum import Enum
 from dataclasses import dataclass, field, asdict
-from typing import List, Union
+from typing import List, Union, Optional
 import time
 from io import StringIO
 from logging import getLogger
 from pprint import pprint
 from itertools import count
+import warnings
+from math import inf
 
 from ..util import ServerConfig
 from ..vasp import VaspConfig, Kspacing
@@ -33,6 +35,11 @@ class TrainingDataConfig:
     def __post_init__(self):
         if self.stoichiometry is None:
             self.stoichiometry = list(range(1, self.max_atoms + 1))
+        if isinstance(self.vasp, dict):
+            self.vasp = VaspConfig(**self.vasp)
+        if isinstance(self.server, dict):
+            self.server = ServerConfig(**self.server)
+        self.delete_existing_job = bool(self.delete_existing_job)
 
     elements: List[str]
     name: str
@@ -154,15 +161,19 @@ def run(pr: Project, config: TrainingDataConfig, tries: Optional[int] = 10, wait
         tries (int): how often to call :func:`.create_structure_set` on all containers; if None try indefinitely
         wait (int): how long to wait in between calls to :func:`.create_structure_set`
     """
-    state = pr.data.get("state", State.SPG)
-    pr.data.config = config
+    state = State(pr.data.get("state", "spg"))
+    pr.data.config = asdict(config)
     pr.data.write()
     if tries is None:
         counter = count()
+        tries = inf
     else:
         counter = range(tries)
     for i in counter:
-        pr.data.state = state = create_structure_set(pr, state, config, fast_forward=True)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message="'KSPACING' found in INCAR, no KPOINTS file written",)
+            state = create_structure_set(pr, state, config, fast_forward=True)
+        pr.data.state = state.value
         pr.data.write()
         if state == State.FINISHED:
             break

@@ -4,6 +4,7 @@ from itertools import combinations_with_replacement
 from typing import Optional, Iterable
 import logging
 import warnings
+import time
 
 from ..projectflow import StructureProjectFlow, WorkflowProjectConfig, RunAgain
 from ..util import DistanceFilter, ServerConfig
@@ -79,6 +80,14 @@ class CalculationConfig:
 
     min_dist: Optional[float] = None
 
+    def __post_init__(self):
+        if isinstance(self.vasp, dict):
+            self.vasp = VaspConfig(**self.vasp)
+        if isinstance(self.server, dict):
+            self.server = ServerConfig(**self.server)
+        if isinstance(self.workflow, dict):
+            self.workflow = VaspConfig(**self.workflow)
+
     def get_job(self):
         job = VaspFactory()
         job.enable_nband_hack({"Al": 2, "H": 2})  # = 3/2 + 1/2 VASP default
@@ -140,7 +149,7 @@ def run_container(pr: Project, cont: "StructureContainer", config: CalculationCo
             number_of_jobs=train.input.structures.number_of_structures,
         )
 
-def run(pr: Project, config: CalculationConfig, *containers: "StructureContainer", tries: int =10, wait: float = 60):
+def run(pr: Project, config: CalculationConfig, *containers: "StructureContainer", tries: int = 10, wait: float = 60):
     """
     Run high quality DFT on all structures in `containers`.
 
@@ -155,14 +164,22 @@ def run(pr: Project, config: CalculationConfig, *containers: "StructureContainer
         tries (int): how often to call :func:`.run_container` on all containers
         wait (float): how long to wait in between
     """
-    pr.data.config = config
+    pr.data.config = asdict(config)
     pr.data.write()
-    for i in range(tries):
+    if tries is None:
+        counter = count()
+        tries = np.inf
+    else:
+        counter = range(tries)
+    for i in counter:
+        retry = False
         for cont in containers:
             try:
                 run_container(pr, cont, config)
             except RunAgain:
-                pass
+                retry = True
+        if not retry:
+            break
         if i + 1 < tries:
             time.sleep(wait)
 

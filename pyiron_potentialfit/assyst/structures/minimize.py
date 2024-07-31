@@ -182,7 +182,7 @@ def minimize(
         logger.info("collecting structures")
         flow.analyze()
         if trace > 1:
-            cont = pr["containers"].load(f"{flow.project.name}Trace")
+            cont = flow.project.load("Trace")
             if cont is None:
                 cont = flow.project.create.job.StructureContainer("Trace")
                 for i, s in enumerate(flow.output.trace_structures.iter_structures()):
@@ -192,13 +192,13 @@ def minimize(
                     pr.create_group("containers"),
                     new_job_name=f"{flow.project.name}Trace",
                 )
-        cont = pr["containers"].load(flow.project.name)
+        cont = flow.project.load("Final")
         if cont is None:
             cont = flow.project.create.job.StructureContainer("Final")
             for i, s in enumerate(flow.output.final_structures.iter_structures()):
                 cont.add_structure(s, identifier=flow.output.final_structures["identifier", i])
             cont.run()
-            cont.copy_to(pr.create_group("containers"), new_job_name=flow.project.name)
+            cont.copy_to(pr["containers"], new_job_name=flow.project.name)
         return cont
 
     config = WorkflowProjectConfig(

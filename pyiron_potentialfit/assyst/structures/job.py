@@ -12,12 +12,19 @@ class AssystStructures(PythonTemplateJob):
         super().__init__(project, job_name)
         self.input.update(asdict(TrainingDataConfig(
                 elements=["Mg"],
-                name="Mg10"
+                name=None
         )))
 
+    @property
+    def child_project(self):
+        # create a project in our own job folder
+        return self.project.open(self.job_name + "_hdf5")
+
     def run_static(self):
+        if self.input.name is None:
+            self.input.name = "".join(self.input.elements) + str(self.input.max_atoms)
         self.status.running = True
-        run(self.child_project, TrainingDataConfig(**self.input))
+        run(self.child_project, TrainingDataConfig(**self.input), tries=None)
         self.status.collect = True
         for cont in self.child_project["containers"].iter_jobs(hamilton="StructureContainer"):
             # proper but loses identifiers

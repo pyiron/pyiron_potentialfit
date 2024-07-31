@@ -61,6 +61,8 @@ class VaspConfig:
             self.kmesh.configure(job)
         for element, path in self.potcars.items():
             job.potential[element] = path
+        if self.magmoms is not None and 'LORBIT' not in self.incar:
+            self.incar['LORBIT'] = 10
         for k, v in self.incar.items():
             try:
                 job.input.incar[k] = v

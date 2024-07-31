@@ -24,6 +24,7 @@ JOB_CLASS_DICT.update(
         "PacemakerJob": "pyiron_potentialfit.pacemaker.job",
         "MeamFit": "pyiron_potentialfit.meamfit.meamfit",
         "FitsnapJob": "pyiron_potentialfit.fitsnap.job",
+        "AssystStructures": "pyiron_potentialfit.assyst.structures.job",
     }
 )
 
