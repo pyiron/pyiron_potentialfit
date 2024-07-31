@@ -32,7 +32,7 @@ JOB_CLASS_DICT.update(
 # for module in moved_potential_modules:
 add_module_conversion(
         "pyiron_potentialfit.spgfit.structures",
-        "pyiron_potentialfit.assyst.structures"
+        "pyiron_potentialfit.assyst.structures.minimize"
 )
 add_module_conversion(
         "pyiron_potentialfit.spgfit.projectflow",
