@@ -377,6 +377,7 @@ _HDF_KEYS = {
     "cell": "output/generic/cells",
     "positions": "output/generic/positions",
     "pbc": "input/structure/cell/pbc",
+    "spins": "output/generic/dft/final_magmoms",
 }
 
 _JOB_HDF_OVERLAY_KEYS = {
@@ -461,6 +462,7 @@ class TrainingStorage(StructureStorage):
         * `positions`: `output/generic/positions`
         * `species`: `input/structure/species`
         * `pbc`: `input/structure/cell/pbc`
+        * `spins`: `output/generic/dft/final_magmoms`
 
         Other keys are ignored.  All entries except `pbc` and `species` must
         lead to arrays that can be indexed by `iteration_step`.
@@ -516,6 +518,10 @@ class TrainingStorage(StructureStorage):
         cell = job[hdf_keys["cell"]][iteration_step]
         positions = job[hdf_keys["positions"]][iteration_step]
         pbc = job[hdf_keys["pbc"]]
+        try:
+            kwargs["spins"] = np.array(job[hdf_keys["spins"]][iteration_step])
+        except KeyError:
+            pass
 
         self.add_chunk(
             len(indices),
