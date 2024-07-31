@@ -179,6 +179,9 @@ def run(pr: Project, config: TrainingDataConfig, tries: Optional[int] = 10, wait
             break
         if i + 1 < tries:
             time.sleep(wait)
+    if state != State.FINISHED:
+        warnings.warn("Structure creation is not finished! Call this function again later!")
+    return state.value
 
 def export_structures(pr, export, ending, format):
     os.makedirs(export, exist_ok=True)

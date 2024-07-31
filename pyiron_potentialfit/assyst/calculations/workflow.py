@@ -164,6 +164,8 @@ def run(pr: Project, config: CalculationConfig, *containers: "StructureContainer
         tries (int): how often to call :func:`.run_container` on all containers
         wait (float): how long to wait in between
     """
+    if tries <= 0:
+        raise ValueError("tries must be an positive integer!")
     pr.data.config = asdict(config)
     pr.data.write()
     if tries is None:
@@ -182,6 +184,8 @@ def run(pr: Project, config: CalculationConfig, *containers: "StructureContainer
             break
         if i + 1 < tries:
             time.sleep(wait)
+    if retry:
+        warnings.warn("Structure creation is not finished! Call this function again later!")
 
 
 def deduplicate(cont, replace=True):
