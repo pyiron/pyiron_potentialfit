@@ -126,6 +126,14 @@ def run_container(pr: Project, cont: "StructureContainer", config: CalculationCo
 
         if train.input.read_only:
             train.input.unlock()
+        if config.vasp.magmoms is not None and len(config.vasp.magmoms) > 0:
+            def apply_magmom(structure):
+                if not structure.has('initial_magmoms'):
+                    structure.set_initial_magnetic_moments(
+                            [config.vasp.magmoms.get(sym, 0.0) for sym in structure.symbols]
+                    )
+                return structure
+            filtered_cont = filtered_cont.transform_structures(apply_magmom).collect_structures()
         train.input.structures = filtered_cont
 
         train.input.job = config.get_job()

@@ -81,9 +81,10 @@ class MinimizeVaspFlow(ProjectFlow):
         sflow.input.job = vasp
         if vasp_config.magmoms is not None and len(vasp_config.magmoms) > 0:
             def apply_magmom(structure):
-                structure.set_initial_magnetic_moments(
-                        [vasp_config.magmoms.get(sym, 0.0) for sym in structure.symbols]
-                )
+                if not structure.has('initial_magmoms'):
+                    structure.set_initial_magnetic_moments(
+                            [vasp_config.magmoms.get(sym, 0.0) for sym in structure.symbols]
+                    )
                 return structure
             sflow.input.structures = self.input.structures.transform_structures(apply_magmom).collect_structures()
         else:
