@@ -115,11 +115,9 @@ class MinimizeVaspFlow(ProjectFlow):
                     name = j.name
                 else:
                     name = f"{j.name}_step_{i}"
-                self.output.trace_structures.include_job(j, iteration_step=-i)
-                self.output.trace_structures["identifier", -1] = name
+                self.output.trace_structures.include_job(j, iteration_step=-i, identifier=name)
                 if i == 1:
-                    self.output.final_structures.include_job(j, iteration_step=-i)
-                    self.output.final_structures["identifier", -1] = name
+                    self.output.final_structures.include_job(j, iteration_step=-i, identifier=name)
 
     @staticmethod
     def _extract_structure(jobpath, frame):
