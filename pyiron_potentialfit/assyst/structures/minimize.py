@@ -153,7 +153,7 @@ def minimize(
     min_dist,
     vasp: VaspConfig,
     server: ServerConfig,
-    delete_existing_job=False,
+    workflow: WorkflowProjectConfig,
 ):
     logger = getLogger("structures")
     logger.info("Minimizing structures: %s -> %s", cont.name, degrees_of_freedom)
@@ -175,7 +175,7 @@ def minimize(
         flow.input.vasp_config = asdict(vasp)
         flow.input.degrees_of_freedom = degrees_of_freedom
         flow.input.server_config = asdict(server)
-        flow.run(delete_existing_job=delete_existing_job)
+        flow.run(delete_existing_job=workflow.delete_existing_job)
         raise RunAgain("Just starting!")
 
     def if_finished(flow):
@@ -201,10 +201,5 @@ def minimize(
             cont.copy_to(pr["containers"], new_job_name=flow.project.name)
         return cont
 
-    config = WorkflowProjectConfig(
-        delete_existing_job=delete_existing_job,
-        broken_threshold=0.1,
-        finished_threshold=0.9,
-    )
-    return minf.check(config, if_new, if_finished,
+    return minf.check(workflow, if_new, if_finished,
                       number_of_jobs=cont.number_of_structures)

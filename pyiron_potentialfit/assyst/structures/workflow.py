@@ -14,7 +14,7 @@ from ..vasp import VaspConfig, Kspacing
 from .random import rattle
 from .minimize import minimize
 from .spg import spg
-from ..projectflow import RunAgain
+from ..projectflow import RunAgain, WorkflowProjectConfig
 
 from pyiron_base import Project
 
@@ -39,7 +39,12 @@ class TrainingDataConfig:
             self.vasp = VaspConfig(**self.vasp)
         if isinstance(self.server, dict):
             self.server = ServerConfig(**self.server)
+        if isinstance(self.workflow, dict):
+            self.workflow = WorkflowProjectConfig(**self.workflow)
         self.delete_existing_job = bool(self.delete_existing_job)
+        # FIXME: Backwards compat
+        if self.delete_existing_job:
+            self.workflow.delete_existing_job = True
 
     elements: List[str]
     name: str
@@ -53,10 +58,16 @@ class TrainingDataConfig:
     stretch_shear: float = 0.2
     stretch_repetitions: int = 4
     min_dist: float = None
+    # deprecated; use workflow config
     delete_existing_job: bool = False
 
     vasp: VaspConfig = field(default_factory=lambda: VaspConfig(encut=None, kmesh=Kspacing(0.5)))
     server: ServerConfig = field(default_factory=lambda: ServerConfig(cores=10, run_time=5*60, queue='cmti'))
+    workflow: WorkflowProjectConfig = field(default_factory=lambda: WorkflowProjectConfig(
+        delete_existing_job=False,
+        broken_threshold=0.1,
+        finished_threshold=0.9,
+    ))
 
 def create_structure_set(
     pr: Project,
@@ -90,7 +101,7 @@ def create_structure_set(
             conf.stoichiometry,
             name=conf.name,
             min_dist=conf.min_dist,
-            delete_existing_job=conf.delete_existing_job,
+            delete_existing_job=conf.workflow.delete_existing_job,
         )
         state = State.VOLMIN
         if not fast_forward:
@@ -106,7 +117,7 @@ def create_structure_set(
                 conf.min_dist,
                 conf.vasp,
                 conf.server,
-                delete_existing_job=conf.delete_existing_job,
+                conf.workflow,
             )
         except RunAgain:
             return state
@@ -124,7 +135,7 @@ def create_structure_set(
                 conf.min_dist,
                 conf.vasp,
                 conf.server,
-                delete_existing_job=conf.delete_existing_job,
+                conf.workflow,
             )
         except RunAgain:
             return state
@@ -143,7 +154,7 @@ def create_structure_set(
             conf.stretch_shear,
             conf.stretch_repetitions,
             conf.min_dist,
-            delete_existing_job=conf.delete_existing_job,
+            delete_existing_job=conf.workflow.delete_existing_job,
         )
         state = State.FINISHED
     return state

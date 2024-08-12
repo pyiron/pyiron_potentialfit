@@ -86,7 +86,7 @@ class CalculationConfig:
         if isinstance(self.server, dict):
             self.server = ServerConfig(**self.server)
         if isinstance(self.workflow, dict):
-            self.workflow = VaspConfig(**self.workflow)
+            self.workflow = WorkflowProjectConfig(**self.workflow)
 
     def get_job(self):
         job = VaspFactory()
