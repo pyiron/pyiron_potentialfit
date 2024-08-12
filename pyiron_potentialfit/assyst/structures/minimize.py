@@ -81,9 +81,10 @@ class MinimizeVaspFlow(ProjectFlow):
         sflow.input.job = vasp
         if vasp_config.magmoms is not None and len(vasp_config.magmoms) > 0:
             def apply_magmom(structure):
-                structure.set_initial_magnetic_moments(
-                        [vasp_config.magmoms.get(sym, 0.0) for sym in structure.symbols]
-                )
+                if not structure.has('initial_magmoms'):
+                    structure.set_initial_magnetic_moments(
+                            [vasp_config.magmoms.get(sym, 0.0) for sym in structure.symbols]
+                    )
                 return structure
             sflow.input.structures = self.input.structures.transform_structures(apply_magmom).collect_structures()
         else:
@@ -115,11 +116,9 @@ class MinimizeVaspFlow(ProjectFlow):
                     name = j.name
                 else:
                     name = f"{j.name}_step_{i}"
-                self.output.trace_structures.include_job(j, iteration_step=-i)
-                self.output.trace_structures["identifier", -1] = name
+                self.output.trace_structures.include_job(j, iteration_step=-i, identifier=name)
                 if i == 1:
-                    self.output.final_structures.include_job(j, iteration_step=-i)
-                    self.output.final_structures["identifier", -1] = name
+                    self.output.final_structures.include_job(j, iteration_step=-i, identifier=name)
 
     @staticmethod
     def _extract_structure(jobpath, frame):
@@ -153,7 +152,7 @@ def minimize(
     min_dist,
     vasp: VaspConfig,
     server: ServerConfig,
-    delete_existing_job=False,
+    workflow: WorkflowProjectConfig,
 ):
     logger = getLogger("structures")
     logger.info("Minimizing structures: %s -> %s", cont.name, degrees_of_freedom)
@@ -175,7 +174,7 @@ def minimize(
         flow.input.vasp_config = asdict(vasp)
         flow.input.degrees_of_freedom = degrees_of_freedom
         flow.input.server_config = asdict(server)
-        flow.run(delete_existing_job=delete_existing_job)
+        flow.run(delete_existing_job=workflow.delete_existing_job)
         raise RunAgain("Just starting!")
 
     def if_finished(flow):
@@ -201,10 +200,5 @@ def minimize(
             cont.copy_to(pr["containers"], new_job_name=flow.project.name)
         return cont
 
-    config = WorkflowProjectConfig(
-        delete_existing_job=delete_existing_job,
-        broken_threshold=0.1,
-        finished_threshold=0.9,
-    )
-    return minf.check(config, if_new, if_finished,
+    return minf.check(workflow, if_new, if_finished,
                       number_of_jobs=cont.number_of_structures)

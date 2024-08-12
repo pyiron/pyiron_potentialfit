@@ -477,7 +477,7 @@ class StructureProjectFlow(ProjectFlow):
         def add(tab):
             tab.analysis_project = self.project["runs"]
             tab.db_filter_function = lambda df: df.hamilton == hamilton
-            tab.add["structure"] = lambda j: j["user/structure"]
+            tab.add["structure"] = lambda j: j.content["user/structure"]
             if table_setup is not None:
                 table_setup(tab)
 

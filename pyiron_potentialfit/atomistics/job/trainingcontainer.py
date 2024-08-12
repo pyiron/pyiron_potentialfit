@@ -60,7 +60,7 @@ class TrainingContainer(GenericJob, HasStructure):
             {"save_neighbors": True, "num_neighbors": 12}, table_name="parameters"
         )
 
-    def include_job(self, job, iteration_step=-1):
+    def include_job(self, job, iteration_step=-1, identifier=None):
         """
         Add structure, energy and forces from job.
 
@@ -68,8 +68,9 @@ class TrainingContainer(GenericJob, HasStructure):
             job (:class:`.AtomisticGenericJob`): job to take structure from
             iteration_step (int, optional): if job has multiple steps, this
             selects which to add
+            identifier (str): name of the extracted structure in the container; default is the name of the job
         """
-        self._container.include_job(job, iteration_step)
+        self._container.include_job(job, iteration_step, identifier=identifier)
 
     def include_structure(self, structure, energy=None, name=None, **properties):
         """
@@ -441,6 +442,7 @@ class TrainingStorage(StructureStorage):
         job,
         iteration_step=-1,
         hdf_keys=None,
+        identifier=None,
     ):
         """
         Add structure, energy, forces and pressures from an inspected or loaded job.
@@ -479,6 +481,7 @@ class TrainingStorage(StructureStorage):
             iteration_step (int, optional): if job has multiple steps, this selects which to add
             hdf_keys (dict of str): customize where values are read from the
                                     job HDF5 file
+            identifier (str): name of the extracted structure in the storage; default is the name of the job
         """
 
         hdf_keys = _HDF_KEYS.copy()
@@ -528,7 +531,7 @@ class TrainingStorage(StructureStorage):
 
         self.add_chunk(
             len(indices),
-            identifier=job.name,
+            identifier=identifier or job.name,
             symbols=species[indices],
             positions=positions,
             cell=[cell],
