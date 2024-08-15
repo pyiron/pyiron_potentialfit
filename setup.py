@@ -39,7 +39,7 @@ setup(
         'runnerase==0.3.3',
         'pyiron_snippets>=0.1.1,<=0.1.3',
         # spgfit
-        'pyiron_atomistics==0.6.4',
+        'pyiron_atomistics==0.6.10',
         'pyiron_contrib==0.1.18',
         'dill>=0.3.0',
         'seaborn>=0.13.0,<0.14',
