@@ -16,20 +16,8 @@ If you use this software in your research, please cite [this paper](https://arxi
 }
 ```
 
-### SpgFit
+### ASSYST
 
-If you use the `SpgFit` utility, please cite [this
-paper](https://journals.aps.org/prb/abstract/10.1103/PhysRevB.107.104103)
+If you use the `ASSYST` utility, please cite this paper
 
-```
-@article{poul2023systematic,
-    title={Systematic atomic structure datasets for machine learning potentials: Application to defects in magnesium},
-    author={Poul, Marvin and Huber, Liam and Bitzek, Erik and Neugebauer, J{\"o}rg},
-    journal={Physical Review B},
-    volume={107},
-    number={10},
-    pages={104103},
-    year={2023},
-    publisher={APS}
-}
-```
+`Marvin Poul, Liam Huber, Jörg Neugebauer, Automated Generation of Structure Datasets for Machine Learning Potentials and Alloys, 12 August 2024, PREPRINT (Version 1) available at Research Square` [https://doi.org/10.21203/rs.3.rs-4732459/v1]
