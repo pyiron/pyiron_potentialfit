@@ -72,6 +72,7 @@ class TrainingDataFlow(StructureProjectFlow):
         train.run()
         return train
 
+
 @dataclass
 class CalculationConfig:
     vasp: VaspConfig
@@ -127,13 +128,17 @@ def run_container(pr: Project, cont: "StructureContainer", config: CalculationCo
         if train.input.read_only:
             train.input.unlock()
         if config.vasp.magmoms is not None and len(config.vasp.magmoms) > 0:
+
             def apply_magmom(structure):
-                if not structure.has('initial_magmoms'):
+                if not structure.has("initial_magmoms"):
                     structure.set_initial_magnetic_moments(
-                            [config.vasp.magmoms.get(sym, 0.0) for sym in structure.symbols]
+                        [config.vasp.magmoms.get(sym, 0.0) for sym in structure.symbols]
                     )
                 return structure
-            filtered_cont = filtered_cont.transform_structures(apply_magmom).collect_structures()
+
+            filtered_cont = filtered_cont.transform_structures(
+                apply_magmom
+            ).collect_structures()
         train.input.structures = filtered_cont
 
         train.input.job = config.get_job()
@@ -149,7 +154,10 @@ def run_container(pr: Project, cont: "StructureContainer", config: CalculationCo
         return results
 
     with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", message="'KSPACING' found in INCAR, no KPOINTS file written",)
+        warnings.filterwarnings(
+            "ignore",
+            message="'KSPACING' found in INCAR, no KPOINTS file written",
+        )
         return train.check(
             config.workflow,
             if_new,
@@ -157,7 +165,14 @@ def run_container(pr: Project, cont: "StructureContainer", config: CalculationCo
             number_of_jobs=train.input.structures.number_of_structures,
         )
 
-def run(pr: Project, config: CalculationConfig, *containers: "StructureContainer", tries: int = 10, wait: float = 60):
+
+def run(
+    pr: Project,
+    config: CalculationConfig,
+    *containers: "StructureContainer",
+    tries: int = 10,
+    wait: float = 60
+):
     """
     Run high quality DFT on all structures in `containers`.
 
@@ -193,7 +208,9 @@ def run(pr: Project, config: CalculationConfig, *containers: "StructureContainer
         if i + 1 < tries:
             time.sleep(wait)
     if retry:
-        warnings.warn("Structure creation is not finished! Call this function again later!")
+        warnings.warn(
+            "Structure creation is not finished! Call this function again later!"
+        )
 
 
 def deduplicate(cont, replace=True):
@@ -266,7 +283,7 @@ def combine(
         df = cont.to_pandas()
         df["name"] = df.name.map(lambda s: cont.name + "_" + s)
         if energy_cap is not None:
-            I = df.energy/df.number_of_atoms <= energy_cap
+            I = df.energy / df.number_of_atoms <= energy_cap
             df = df.loc[I]
         if force_cap is not None:
             I = df.forces.map(lambda f: np.linalg.norm(f, axis=-1).max() < force_cap)

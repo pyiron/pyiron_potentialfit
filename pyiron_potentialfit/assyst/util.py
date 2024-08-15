@@ -126,11 +126,12 @@ def get_table(pr, table_name, add=None, delete_existing_job=False):
                 raise
             pr.remove_job(table_name)
     if add is None:
-        raise ValueError('add cannot be None on first run!')
+        raise ValueError("add cannot be None on first run!")
     tab = pr.create_table(table_name, delete_existing_job=delete_existing_job)
     add(tab)
     tab.run()
     return tab
+
 
 def read_generic_parameters(hdf, key):
     gp = GenericParameters(table_name="data_dict")
@@ -175,6 +176,7 @@ def symlink_project(pr: Project):
 
 
 # Generic config objects for all tools
+
 
 @dataclass
 class ServerConfig:

@@ -102,7 +102,7 @@ def fit(
         training_containers = tuple(training_containers)
     train_name = "_".join(train.name for train in training_containers)
     train_number_of_structures = sum(
-            train.number_of_structures for train in training_containers
+        train.number_of_structures for train in training_containers
     )
     pr = fit_pr.create_group(train_name)
 
@@ -264,7 +264,7 @@ def energy_mae(j):
     N = inpt.get_array("length")
     train = np.squeeze(inpt.get_array("energy")) / N
     pred = np.squeeze(j["output/training_efs"].to_object().get_array("energy")) / N
-    return np.abs(train-pred).mean()
+    return np.abs(train - pred).mean()
 
 
 def energy_max(j):

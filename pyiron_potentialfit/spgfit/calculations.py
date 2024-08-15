@@ -5,11 +5,7 @@ import logging
 from pyiron_base import Project
 
 from ..assyst.projectflow import RunAgain
-from ..assyst.calculations.workflow import (
-        CalculationConfig,
-        run_container,
-        combine
-)
+from ..assyst.calculations.workflow import CalculationConfig, run_container, combine
 from ..assyst.util import fast_forward, ServerConfig
 from ..assyst.vasp import VaspConfig
 
@@ -108,9 +104,7 @@ def main():
 
     server_group = parser.add_argument_group("Server")
     server_group.add_argument(
-        "--queue",
-        default=ServerConfig.queue,
-        help="Pyiron queue to submit jobs to"
+        "--queue", default=ServerConfig.queue, help="Pyiron queue to submit jobs to"
     )
     server_group.add_argument(
         "--cores",
@@ -155,21 +149,21 @@ def main():
         }
 
     conf = CalculationConfig(
-            vasp=VaspConfig(
-                encut=args.encut,
-                kmesh=args.kpoints,
-                incar=incar,
-            ),
-            server=ServerConfig(
-                cores=args.cores,
-                run_time=args.run_time,
-            ),
-            workflow=WorkflowProjectConfig(
-                delete_existing_job=args.delete_existing_job,
-                broken_threshold=args.broken_threshold,
-                finished_threshold=0.9,
-            ),
-            min_dist=args.min_dist,
+        vasp=VaspConfig(
+            encut=args.encut,
+            kmesh=args.kpoints,
+            incar=incar,
+        ),
+        server=ServerConfig(
+            cores=args.cores,
+            run_time=args.run_time,
+        ),
+        workflow=WorkflowProjectConfig(
+            delete_existing_job=args.delete_existing_job,
+            broken_threshold=args.broken_threshold,
+            finished_threshold=0.9,
+        ),
+        min_dist=args.min_dist,
     )
 
     pr = Project(args.project)
