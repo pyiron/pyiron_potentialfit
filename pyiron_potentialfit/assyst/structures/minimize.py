@@ -13,14 +13,15 @@ from ..projectflow import (
 )
 
 from pyiron_potentialfit.atomistics.job.trainingcontainer import (
-        TrainingContainer,
-        TrainingStorage,
+    TrainingContainer,
+    TrainingStorage,
 )
 from pyiron_atomistics.atomistics.structure.structurestorage import StructureStorage
 from pyiron_atomistics.atomistics.job.structurecontainer import StructureContainer
 from pyiron_contrib.jobfactories import VaspFactory
 
 from traitlets import Instance, Float, Bool, Int, CaselessStrEnum, Dict
+
 
 class MinimizeVaspInput(Input):
 
@@ -45,9 +46,11 @@ class MinimizeVaspInput(Input):
     min_dist = Float(default_value=None, allow_none=True)
     accept_not_converged = Int(default_value=False)
 
+
 class MinimizeOutput(Output):
     final_structures = Instance(TrainingStorage, args=())
     trace_structures = Instance(TrainingStorage, args=())
+
 
 class MinimizeVaspFlow(ProjectFlow):
 
@@ -80,13 +83,17 @@ class MinimizeVaspFlow(ProjectFlow):
 
         sflow.input.job = vasp
         if vasp_config.magmoms is not None and len(vasp_config.magmoms) > 0:
+
             def apply_magmom(structure):
-                if not structure.has('initial_magmoms'):
+                if not structure.has("initial_magmoms"):
                     structure.set_initial_magnetic_moments(
-                            [vasp_config.magmoms.get(sym, 0.0) for sym in structure.symbols]
+                        [vasp_config.magmoms.get(sym, 0.0) for sym in structure.symbols]
                     )
                 return structure
-            sflow.input.structures = self.input.structures.transform_structures(apply_magmom).collect_structures()
+
+            sflow.input.structures = self.input.structures.transform_structures(
+                apply_magmom
+            ).collect_structures()
         else:
             sflow.input.structures = self.input.structures.copy()
         sflow.input.table_setup = lambda tab: tab
@@ -94,21 +101,29 @@ class MinimizeVaspFlow(ProjectFlow):
         sflow.attach(self.project, "structures").run()
 
     def _analyze(self, delete_existing_job=False):
-        if self.output.final_structures.number_of_structures > 0 and not delete_existing_job:
+        if (
+            self.output.final_structures.number_of_structures > 0
+            and not delete_existing_job
+        ):
             return
         ok_status = ["finished"]
         if self.input.accept_not_converged:
             ok_status += ["not_converged", "warning"]
         for j in self.project.iter_jobs(hamilton="Vasp", convert_to_object=False):
-            if j.status not in ok_status: continue
+            if j.status not in ok_status:
+                continue
 
             N = len(j["output/generic/steps"])
             stride = max(N // self.input.number_of_structures, 1)
-            for i in range(1, N + 1, stride)[:self.input.number_of_structures]:
+            for i in range(1, N + 1, stride)[: self.input.number_of_structures]:
                 s = self._extract_structure(j, -i)
                 if (
                     self.input.min_dist is not None
-                    and np.prod(s.get_neighbors(cutoff_radius=self.input.min_dist).distances.shape)
+                    and np.prod(
+                        s.get_neighbors(
+                            cutoff_radius=self.input.min_dist
+                        ).distances.shape
+                    )
                     > 0
                 ):
                     continue
@@ -116,9 +131,13 @@ class MinimizeVaspFlow(ProjectFlow):
                     name = j.name
                 else:
                     name = f"{j.name}_step_{i}"
-                self.output.trace_structures.include_job(j, iteration_step=-i, identifier=name)
+                self.output.trace_structures.include_job(
+                    j, iteration_step=-i, identifier=name
+                )
                 if i == 1:
-                    self.output.final_structures.include_job(j, iteration_step=-i, identifier=name)
+                    self.output.final_structures.include_job(
+                        j, iteration_step=-i, identifier=name
+                    )
 
     @staticmethod
     def _extract_structure(jobpath, frame):
@@ -143,6 +162,7 @@ class MinimizeVaspFlow(ProjectFlow):
                 pbc=jobpath["input/stguctuge/cell/pbc"],
             )
         return structure
+
 
 def minimize(
     pr,
@@ -185,7 +205,9 @@ def minimize(
             if cont is None:
                 cont = flow.project.create.job.StructureContainer("Trace")
                 for i, s in enumerate(flow.output.trace_structures.iter_structures()):
-                    cont.add_structure(s, identifier=flow.output.trace_structures["identifier", i])
+                    cont.add_structure(
+                        s, identifier=flow.output.trace_structures["identifier", i]
+                    )
                 cont.run()
                 cont.copy_to(
                     pr.create_group("containers"),
@@ -195,10 +217,13 @@ def minimize(
         if cont is None:
             cont = flow.project.create.job.StructureContainer("Final")
             for i, s in enumerate(flow.output.final_structures.iter_structures()):
-                cont.add_structure(s, identifier=flow.output.final_structures["identifier", i])
+                cont.add_structure(
+                    s, identifier=flow.output.final_structures["identifier", i]
+                )
             cont.run()
             cont.copy_to(pr["containers"], new_job_name=flow.project.name)
         return cont
 
-    return minf.check(workflow, if_new, if_finished,
-                      number_of_jobs=cont.number_of_structures)
+    return minf.check(
+        workflow, if_new, if_finished, number_of_jobs=cont.number_of_structures
+    )

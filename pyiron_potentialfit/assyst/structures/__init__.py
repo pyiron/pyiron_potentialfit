@@ -1,7 +1,7 @@
 from .workflow import (
-        TrainingDataConfig,
-        ServerConfig,
-        VaspConfig,
-        WorkflowProjectConfig,
-        run,
+    TrainingDataConfig,
+    ServerConfig,
+    VaspConfig,
+    WorkflowProjectConfig,
+    run,
 )

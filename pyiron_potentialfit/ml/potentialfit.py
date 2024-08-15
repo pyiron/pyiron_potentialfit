@@ -102,6 +102,7 @@ class PotentialFit(abc.ABC):
         """
         pass
 
+
 def _scatter(x, y):
     """
     Adaptive scatter plot.
@@ -112,10 +113,11 @@ def _scatter(x, y):
     if len(x) < 100:
         plt.scatter(x, y)
     elif len(x) < 1000:
-        plt.scatter(x, y, marker='.')
+        plt.scatter(x, y, marker=".")
     else:
-        plt.hexbin(x, y, bins='log')
+        plt.hexbin(x, y, bins="log")
         plt.colorbar(label="Observations")
+
 
 def _annotated_vline(x, text, trafo, linestyle="--"):
     plt.axvline(x, color="k", linestyle=linestyle)
@@ -128,6 +130,7 @@ def _annotated_vline(x, text, trafo, linestyle="--"):
         horizontalalignment="center",
         path_effects=[withStroke(linewidth=4, foreground="w")],
     )
+
 
 class PotentialPlots:
     def __init__(self, training_data, predicted_data):
@@ -251,9 +254,7 @@ class PotentialPlots:
         ax = plt.gca()
         trafo = ax.get_xaxis_transform()
 
-        plt.hist(
-            df, bins=np.logspace(np.log10(low), np.log10(high), bins), log=logy
-        )
+        plt.hist(df, bins=np.logspace(np.log10(low), np.log10(high), bins), log=logy)
         plt.xscale("log")
         _annotated_vline(rmse, f"RMSE = {rmse:.02}", trafo)
         _annotated_vline(mae, f"MAE = {mae:.02}", trafo)

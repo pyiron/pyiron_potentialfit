@@ -1,9 +1,11 @@
 """Helper classes to run vasp jobs."""
+
 import abc
 from dataclasses import dataclass, field
 from typing import Union, Optional, Dict, Tuple
 
 from pyiron_base import GenericJob
+
 
 @dataclass
 class KMeshSpec(abc.ABC):
@@ -11,22 +13,27 @@ class KMeshSpec(abc.ABC):
     def configure(self, job):
         pass
 
+
 @dataclass(slots=True)
 class Kpoints(KMeshSpec):
-    kpoints: Union[int,Tuple[int, int, int]]
+    kpoints: Union[int, Tuple[int, int, int]]
+
     def configure(self, job):
         job.set_kpoints(self.kpoints)
+
 
 @dataclass(slots=True)
 class Kspacing(KMeshSpec):
     kspacing: float
+
     def configure(self, job):
         try:
-            job.input.incar['KSPACING'] = self.kspacing
+            job.input.incar["KSPACING"] = self.kspacing
         except AttributeError:
             # called on a VaspFactory instead of a Vasp job
-            job.incar['KSPACING'] = self.kspacing
+            job.incar["KSPACING"] = self.kspacing
         # job.set_kpoints(k_mesh_spacing=self.kspacing)
+
 
 @dataclass
 class VaspConfig:
@@ -61,8 +68,8 @@ class VaspConfig:
             self.kmesh.configure(job)
         for element, path in self.potcars.items():
             job.potential[element] = path
-        if self.magmoms is not None and 'LORBIT' not in self.incar:
-            self.incar['LORBIT'] = 10
+        if self.magmoms is not None and "LORBIT" not in self.incar:
+            self.incar["LORBIT"] = 10
         for k, v in self.incar.items():
             try:
                 job.input.incar[k] = v

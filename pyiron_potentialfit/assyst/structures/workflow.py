@@ -18,6 +18,7 @@ from ..projectflow import RunAgain, WorkflowProjectConfig
 
 from pyiron_base import Project
 
+
 class State(Enum):
     """
     The current state of the structure generation.
@@ -61,13 +62,20 @@ class TrainingDataConfig:
     # deprecated; use workflow config
     delete_existing_job: bool = False
 
-    vasp: VaspConfig = field(default_factory=lambda: VaspConfig(encut=None, kmesh=Kspacing(0.5)))
-    server: ServerConfig = field(default_factory=lambda: ServerConfig(cores=10, run_time=5*60, queue='cmti'))
-    workflow: WorkflowProjectConfig = field(default_factory=lambda: WorkflowProjectConfig(
-        delete_existing_job=False,
-        broken_threshold=0.1,
-        finished_threshold=0.9,
-    ))
+    vasp: VaspConfig = field(
+        default_factory=lambda: VaspConfig(encut=None, kmesh=Kspacing(0.5))
+    )
+    server: ServerConfig = field(
+        default_factory=lambda: ServerConfig(cores=10, run_time=5 * 60, queue="cmti")
+    )
+    workflow: WorkflowProjectConfig = field(
+        default_factory=lambda: WorkflowProjectConfig(
+            delete_existing_job=False,
+            broken_threshold=0.1,
+            finished_threshold=0.9,
+        )
+    )
+
 
 def create_structure_set(
     pr: Project,
@@ -159,7 +167,10 @@ def create_structure_set(
         state = State.FINISHED
     return state
 
-def run(pr: Project, config: TrainingDataConfig, tries: Optional[int] = 10, wait: int = 60):
+
+def run(
+    pr: Project, config: TrainingDataConfig, tries: Optional[int] = 10, wait: int = 60
+):
     """
     Create structure set.
 
@@ -182,7 +193,10 @@ def run(pr: Project, config: TrainingDataConfig, tries: Optional[int] = 10, wait
         counter = range(tries)
     for i in counter:
         with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", message="'KSPACING' found in INCAR, no KPOINTS file written",)
+            warnings.filterwarnings(
+                "ignore",
+                message="'KSPACING' found in INCAR, no KPOINTS file written",
+            )
             state = create_structure_set(pr, state, config, fast_forward=True)
         pr.data.state = state.value
         pr.data.write()
@@ -191,8 +205,11 @@ def run(pr: Project, config: TrainingDataConfig, tries: Optional[int] = 10, wait
         if i + 1 < tries:
             time.sleep(wait)
     if state != State.FINISHED:
-        warnings.warn("Structure creation is not finished! Call this function again later!")
+        warnings.warn(
+            "Structure creation is not finished! Call this function again later!"
+        )
     return state.value
+
 
 def export_structures(pr, export, ending, format):
     os.makedirs(export, exist_ok=True)
@@ -200,4 +217,7 @@ def export_structures(pr, export, ending, format):
         dir_path = os.path.join(export, cont.name)
         os.makedirs(dir_path, exist_ok=True)
         for i, s in enumerate(cont.iter_structures()):
-            s.write(os.path.join(dir_path, cont._container["identifier", i]) + "." + ending, format=format)
+            s.write(
+                os.path.join(dir_path, cont._container["identifier", i]) + "." + ending,
+                format=format,
+            )

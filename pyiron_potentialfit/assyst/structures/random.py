@@ -8,6 +8,7 @@ from pyiron_atomistics.atomistics.structure.has_structure import HasStructure
 import numpy as np
 from tqdm.auto import tqdm
 
+
 def shake(displacement=0.1):
     """
     Return a function that randomly displaces atoms in structures.
@@ -74,7 +75,7 @@ def fill_container(
                     # one weird aspect ratios, the neighbor searching code can allocate huge structures,
                     # because it explicitly repeats the structure to create ghost atoms
                     # since we only care about the presence of short distances between atoms and not the
-                    # real neighbor information, simply double the structure to make sure we see all bonds 
+                    # real neighbor information, simply double the structure to make sure we see all bonds
                     # and turn off PBC
                     sd = s.repeat(2)
                     sd.pbc = [False, False, False]
@@ -117,10 +118,7 @@ def rattle(
             rand,
             repetitions=rattle_repetitions,
             combine=2,
-            modifiers=(
-                (1, shake(rattle_disp)),
-                (1, stretch(rattle_strain))
-            ),
+            modifiers=((1, shake(rattle_disp)), (1, stretch(rattle_strain))),
             min_dist=min_dist,
         )
         logger.info("added %i rattle structures", rand.number_of_structures - N)

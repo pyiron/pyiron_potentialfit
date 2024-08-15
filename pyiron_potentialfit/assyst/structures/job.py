@@ -4,16 +4,15 @@ from pyiron_base import PythonTemplateJob
 
 from .workflow import export_structures, run, TrainingDataConfig
 
+
 class AssystStructures(PythonTemplateJob):
     """
     Create structure set with ASSYST.
     """
+
     def __init__(self, project, job_name):
         super().__init__(project, job_name)
-        self.input.update(asdict(TrainingDataConfig(
-                elements=["Mg"],
-                name=None
-        )))
+        self.input.update(asdict(TrainingDataConfig(elements=["Mg"], name=None)))
 
     @property
     def child_project(self):
@@ -26,7 +25,9 @@ class AssystStructures(PythonTemplateJob):
         self.status.running = True
         run(self.child_project, TrainingDataConfig(**self.input), tries=None)
         self.status.collect = True
-        for cont in self.child_project["containers"].iter_jobs(hamilton="StructureContainer"):
+        for cont in self.child_project["containers"].iter_jobs(
+            hamilton="StructureContainer"
+        ):
             # proper but loses identifiers
             # self.output[cont.name] = cont.collect_structures()
             self.output[cont.name] = cont._container.copy()

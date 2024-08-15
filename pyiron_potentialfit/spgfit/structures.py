@@ -23,12 +23,30 @@ from ..assyst.util import fast_forward
 from ..assyst.vasp import Kpoints, Kspacing, VaspConfig
 
 from ..assyst.structures.workflow import (
-        export_structures,
-        TrainingDataConfig, State,
-        create_structure_set
+    export_structures,
+    TrainingDataConfig,
+    State,
+    create_structure_set,
 )
 
 
+def run(pr: Project, config: TrainingDataConfig, wait_time=60):
+    """
+    Create a new structure set.
+
+    Simply calls :func:`.create_structure_set` in a loop until finished.
+
+    Args:
+        pr (Project): project to run the calculations in
+        config (TrainingDataConfig): parameters for structure set
+        wait_time (int): how many seconds to sleep between calling :func:`.create_structure_set`.
+    """
+    state = State.SPG
+    while (
+        state := create_structure_set(pr, state, conf, fast_forward=True)
+    ) != State.FINISHED:
+        time.sleep(wait_time)
+
 
 def run(pr: Project, config: TrainingDataConfig, wait_time=60):
     """
@@ -42,23 +60,11 @@ def run(pr: Project, config: TrainingDataConfig, wait_time=60):
         wait_time (int): how many seconds to sleep between calling :func:`.create_structure_set`.
     """
     state = State.SPG
-    while (state := create_structure_set(pr, state, conf, fast_forward=True)) != State.FINISHED:
+    while (
+        state := create_structure_set(pr, state, conf, fast_forward=True)
+    ) != State.FINISHED:
         time.sleep(wait_time)
 
-def run(pr: Project, config: TrainingDataConfig, wait_time=60):
-    """
-    Create a new structure set.
-
-    Simply calls :func:`.create_structure_set` in a loop until finished.
-
-    Args:
-        pr (Project): project to run the calculations in
-        config (TrainingDataConfig): parameters for structure set
-        wait_time (int): how many seconds to sleep between calling :func:`.create_structure_set`.
-    """
-    state = State.SPG
-    while (state := create_structure_set(pr, state, conf, fast_forward=True)) != State.FINISHED:
-        time.sleep(wait_time)
 
 epilog = """
 Follows the systematic approach reported in this paper[1].  Execution is
@@ -209,25 +215,35 @@ def main():
         help="Retry the current step from scratch",
     )
     parser.add_argument(
-        "--export", type=str,
+        "--export",
+        type=str,
         help="Optionally specify a directory where to dump POSCAR files with the generated structures after everything "
-             "is finished."
+        "is finished.",
     )
     parser.add_argument(
-        "--magmom", nargs=2, action="append", default=[],
+        "--magmom",
+        nargs=2,
+        action="append",
+        default=[],
         help="Initial magnetic moments as `element symbol`, followed by the collinear magnetic moment; all atoms of "
-             "the same element will be initialized the same; may be given multiple times, once per element"
+        "the same element will be initialized the same; may be given multiple times, once per element",
     )
     parser.add_argument(
-        "--potcar", nargs=2, action="append", default=[], type=dict,
+        "--potcar",
+        nargs=2,
+        action="append",
+        default=[],
+        type=dict,
         help="use these POTCARs instead of the default ones; must be given as "
-             "TYPE PATH pairs, but may be given multiple times, one for each "
-             "element."
+        "TYPE PATH pairs, but may be given multiple times, one for each "
+        "element.",
     )
 
     parser.add_argument(
-        "--cores", type=int, default=10,
-        help="Number of cores to use per job during minimizations"
+        "--cores",
+        type=int,
+        default=10,
+        help="Number of cores to use per job during minimizations",
     )
 
     args = parser.parse_args()
@@ -245,10 +261,12 @@ def main():
     conf = {k: v for k, v in conf.items() if v is not None}
     conf = TrainingDataConfig(**conf)
 
-    for (el, mm) in args.magmom:
+    for el, mm in args.magmom:
         mm = float(mm)
         if el not in args.elements:
-            raise ValueError(f"Elements for magmoms, must be also given via -e, not {el}!")
+            raise ValueError(
+                f"Elements for magmoms, must be also given via -e, not {el}!"
+            )
         conf.vasp.magmoms[el] = mm
     if args.potcar is not {}:
         conf.vasp.potcars = args.potcar

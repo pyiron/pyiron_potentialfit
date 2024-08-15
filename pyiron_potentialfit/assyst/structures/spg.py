@@ -13,6 +13,7 @@ from pyxtal.tolerance import Tol_matrix
 
 from ..util import RCORE, DistanceFilter
 
+
 def _pyxtal(
     group: Union[int, List[int]],
     species: Tuple[str],
@@ -179,7 +180,7 @@ def spg(
         if min_dist is None:
             distance_filter = DistanceFilter()
         else:
-            distance_filter = DistanceFilter({e: min_dist/2 for e in elements})
+            distance_filter = DistanceFilter({e: min_dist / 2 for e in elements})
         el, ni = zip(*((el, ni) for el, ni in zip(elements, num_ions) if ni > 0))
         # missing checker support
         # pr.create.structure.pyxtal(
