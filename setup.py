@@ -32,12 +32,13 @@ setup(
     install_requires=[
         'ase==3.23.0',
         'pyiron_atomistics==0.6.9',
-        'matplotlib==3.8.4',
+        'matplotlib>=3.8.4,<4',
         'numpy==1.26.4',
-        'pyiron_base==0.9.12',
+        'pyiron_base==0.9.10',
         'scipy==1.14.0',
         'runnerase==0.3.3',
-        'pyiron_snippets>=0.1.1,<=0.1.3',
+        'pyiron_snippets>=0.1.1,<=0.1.4',
+        'pyparsing>=3.1.2,<3.2',
         # spgfit
         'pyiron_atomistics==0.6.4',
         'pyiron_contrib==0.1.18',
