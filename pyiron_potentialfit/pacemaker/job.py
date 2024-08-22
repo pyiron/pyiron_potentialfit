@@ -43,6 +43,7 @@ class PacemakerJob(GenericJob, PotentialFit):
         self.__version__ = "0.2"
 
         self._train_job_id_list = []
+        self._compress_by_default = True
 
         self.input = GenericParameters(table_name="input")
         self._cutoff = 7.0
