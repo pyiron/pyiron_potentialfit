@@ -17,4 +17,4 @@ dependencies:
 - dill >=0.3
 - seaborn >=0.13.0,<0.14
 - runnerase =0.3.3
-- pyxtal >=0.6.0,<0.7
+- pyxtal >=0.6.0,<1.1
