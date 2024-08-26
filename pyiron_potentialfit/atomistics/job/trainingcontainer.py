@@ -526,7 +526,7 @@ class TrainingStorage(StructureStorage):
         pbc = job.content[hdf_keys["pbc"]]
         try:
             kwargs["spins"] = np.array(job.content[hdf_keys["spins"]][iteration_step])
-        except KeyError:
+        except (KeyError, IndexError):
             pass
 
         self.add_chunk(
