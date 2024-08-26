@@ -4,5 +4,6 @@ from .workflow import (
     VaspConfig,
     WorkflowProjectConfig,
     run,
+    combine,
 )
 from ..projectflow import RunAgain
