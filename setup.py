@@ -33,7 +33,7 @@ setup(
         'ase==3.23.0',
         'matplotlib>=3.8.4,<4',
         'numpy==1.26.4',
-        'pyiron_base==0.9.11',
+        'pyiron_base==0.10.2',
         'pyiron_atomistics==0.6.10',
         'scipy==1.14.0',
         'runnerase==0.3.3',
