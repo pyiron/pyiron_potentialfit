@@ -171,15 +171,15 @@ class MlipInput(Input):
         self.mlip = MlipParameter()
         super(MlipInput, self).__init__()
 
-    def to_dict(self):
-        data_dict = super().to_dict()
+    def _to_dict(self):
+        data_dict = super()._to_dict()
         for k, v in self.mlip.to_dict().items():
             data_dict[self.mlip.table_name + "/" + k] = v
         return data_dict
 
-    def from_dict(self, data_dict):
-        super().from_dict(data_dict)
-        self.mlip.from_dict(data_dict[self.mlip.table_name])
+    def _from_dict(self, obj_dict):
+        super()._from_dict(obj_dict)
+        self.mlip.from_dict(obj_dict[self.mlip.table_name])
 
 
 class MlipParameter(GenericParameters):
