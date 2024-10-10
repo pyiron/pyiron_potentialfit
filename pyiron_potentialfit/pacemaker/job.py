@@ -458,3 +458,14 @@ class PacemakerJob(GenericJob, PotentialFit):
         total_training_df.reset_index(drop=True, inplace=True)
 
         return total_training_df
+    
+    def compress(self, files_to_compress=None):
+        """
+        Compress the output files of a job object.
+
+        Args:
+            files_to_compress (list): A list of files to compress (optional)
+        """
+        if files_to_compress is None:
+            files_to_compress = [f for f in self.files.list() if not f.endswith('.yace')]
+        super(PacemakerJob, self).compress(files_to_compress=files_to_compress)
