@@ -9,7 +9,7 @@ from itertools import count
 import warnings
 from math import inf
 
-from ..util import ServerConfig
+from ..util import ServerConfig, DistanceFilter
 from ..vasp import VaspConfig, Kspacing
 from .random import rattle
 from .minimize import minimize
@@ -58,7 +58,10 @@ class TrainingDataConfig:
     stretch_hydro: float = 0.8
     stretch_shear: float = 0.2
     stretch_repetitions: int = 4
-    min_dist: float = None
+    # can be either a single cutoff distance or a dictionary mapping chemical
+    # symbols to min *radii*; you need to half the value if you go from using a
+    # float to a dict
+    min_dist: float | dict[str, float] = None
     # deprecated; use workflow config
     delete_existing_job: bool = False
 
@@ -75,6 +78,15 @@ class TrainingDataConfig:
             finished_threshold=0.9,
         )
     )
+
+    def get_distance_filter(self):
+        match self.min_dist:
+            case float():
+                return DistanceFilter({el: self.min_dist/2 for el in self.elements})
+            case dict():
+                return DistanceFilter(self.min_dist)
+            case _:
+                assert False, f"min_dist cannot by of type {type(self.min_dist)}: {self.min_dist}!"
 
 
 def create_structure_set(
@@ -161,7 +173,7 @@ def create_structure_set(
             conf.stretch_hydro,
             conf.stretch_shear,
             conf.stretch_repetitions,
-            conf.min_dist,
+            filterf=conf.get_distance_filter(),
             delete_existing_job=conf.workflow.delete_existing_job,
         )
         state = State.FINISHED

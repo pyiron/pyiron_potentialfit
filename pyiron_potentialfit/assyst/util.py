@@ -95,10 +95,18 @@ class DistanceFilter:
     @staticmethod
     def _element_wise_dist(structure):
         pair = defaultdict(lambda: np.inf)
-        n = structure.get_neighbors(num_neighbors=25, cutoff_radius=5, mode="ragged")
+        # n = structure.get_neighbors(num_neighbors=25, cutoff_radius=5, mode="ragged")
+        # one weird aspect ratios, the neighbor searching code can allocate huge structures,
+        # because it explicitly repeats the structure to create ghost atoms
+        # since we only care about the presence of short distances between atoms and not the
+        # real neighbor information, simply double the structure to make sure we see all bonds
+        # and turn off PBC
+        sr = structure.repeat(2)
+        sr.pbc = [False, False, False]
+        n = sr.get_neighbors(num_neighbors=len(structure), mode="ragged")
         for i, (I, D) in enumerate(zip(n.indices, n.distances)):
             for j, d in zip(I, D):
-                ei, ej = sorted((structure.symbols[i], structure.symbols[j]))
+                ei, ej = sorted((sr.symbols[i], sr.symbols[j]))
                 pair[ei, ej] = min(d, pair[ei, ej])
         return pair
 
