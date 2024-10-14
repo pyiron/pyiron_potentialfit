@@ -38,7 +38,7 @@ setup(
         'scipy==1.14.0',
         'runnerase==0.3.3',
         'pyiron_snippets>=0.1.1,<=0.1.4',
-        'pyparsing>=3.1.2,<3.2',
+        'pyparsing>=3.1.2,<3.3',
         # spgfit
         'pyiron_contrib==0.1.18',
         'dill>=0.3.0',
