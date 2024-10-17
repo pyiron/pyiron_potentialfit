@@ -6,9 +6,11 @@
 import logging
 from typing import List
 
+import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
+import seaborn as sns
 import ruamel.yaml as yaml
 
 from shutil import copyfile
@@ -455,3 +457,55 @@ class PacemakerJob(GenericJob, PotentialFit):
         total_training_df.reset_index(drop=True, inplace=True)
 
         return total_training_df
+
+    def check_inner_cutoffs(self):
+        """
+        Plot the pair interactions around the inner cutoff radius.
+        """
+        if not self.status.finished:
+            raise ValueError("Status must be finished to check inner cutoffs!")
+        import pyace
+        from pyiron_snippets.logger import logger
+
+        # pyace resets our log level by accident, circumvent that here
+        level = logger.getEffectiveLevel()
+        ace = pyace.PyACECalculator(str(self.files.output_potential_yace))
+        logger.setLevel(level)
+
+        pot = yaml.YAML(typ="safe").load(self.content["output/potential/yaml"])
+        cuts = {}
+        for sp in pot['species']:
+            elems = tuple(sorted(sp['speciesblock'].split()))
+            if 'r_in' not in sp:
+                continue
+            if len(elems) == 1:
+                elems = (elems[0],) * 2
+            cuts[elems] = sp['r_in']
+
+        df = []
+        for elems, ri in cuts.items():
+            r = np.linspace(0.9, 1.1) * ri
+            e = []
+            for rr in r:
+                s = self.project.create.structure.atoms(
+                        elems,
+                        positions=[[0]*3, [rr, 0, 0]],
+                        cell=[50]*3
+                )
+                s.calc = ace
+                e.append(s.get_potential_energy())
+            df.append({
+                'pair': '-'.join(elems),
+                'r': r,
+                'e': e
+            })
+
+        df = pd.DataFrame(df).explode(['r','e']).infer_objects()
+        sns.lineplot(
+            data=df,
+            x='r', y='e',
+            hue='pair'
+        )
+        plt.xlabel(r"Distance [$\AA$]")
+        plt.ylabel(r"Energy [eV]")
+        return df
