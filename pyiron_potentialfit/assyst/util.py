@@ -187,28 +187,29 @@ def symlink_project(pr: Project):
 
 
 def get_mlip_parameters(j):
-    level = read_generic_parameters(j['mlip_inp'], 'potential')
+    level = read_generic_parameters(j["mlip_inp"], "potential")
     if isinstance(level, str):
-        level = int(level[:-1]) # Alex' names are of the form 16g/20g/etc.
+        level = int(level[:-1])  # Alex' names are of the form 16g/20g/etc.
     return {
-        'id': j.id,
-        'name': j.name,
-        'training': '|'.join(pr.inspect(tid).name for tid in j['input/job_id_list']),
-        'level': level,
+        "id": j.id,
+        "name": j.name,
+        "training": "|".join(pr.inspect(tid).name for tid in j["input/job_id_list"]),
+        "level": level,
         # should work if pyparsing wasn't so shitty
         # 'rmin': j.potential._store.radial.info.min_dist,
         # 'rmax': j.potential._store.radial.info.max_dist,
-        'rmin': read_generic_parameters(j['mlip_inp'], 'min_dist'),
-        'rmax': read_generic_parameters(j['mlip_inp'], 'max_dist'),
-        'restart': 'restart' in j.name,
+        "rmin": read_generic_parameters(j["mlip_inp"], "min_dist"),
+        "rmax": read_generic_parameters(j["mlip_inp"], "max_dist"),
+        "restart": "restart" in j.name,
     }
+
 
 def get_ace_parameters(j):
     potential = read_generic_parameters(j.content["input/input"], "potential")
-    embed = potential['embeddings']['ALL']['fs_parameters']
-    if embed == [1,1]:
+    embed = potential["embeddings"]["ALL"]["fs_parameters"]
+    if embed == [1, 1]:
         embed = "linear"
-    elif embed == [1,1,1,0.5]:
+    elif embed == [1, 1, 1, 0.5]:
         embed = "sqrt"
     fit = read_generic_parameters(j.content["input/input"], "fit")
     if "weighting" in fit:
@@ -217,40 +218,49 @@ def get_ace_parameters(j):
         weight = "uniform"
     ladder = fit.get("ladder_step", False)
     return {
-        'id': j.id,
-        'name': j.name,
-        'model': 'ACE',
-        'funcs': j.content['output/log/nfuncs'][-1],
-        'embed': embed,
-        'rmax': read_generic_parameters(j.content["input/input"], 'cutoff'),
-        'training': '|'.join(Project('.').inspect(tid).name for tid in j['input/training_job_ids']),
-        'weight': weight,
-        'ladder': tuple(ladder) if ladder else ladder,
-        'iterations': fit["maxiter"],
+        "id": j.id,
+        "name": j.name,
+        "model": "ACE",
+        "funcs": j.content["output/log/nfuncs"][-1],
+        "embed": embed,
+        "rmax": read_generic_parameters(j.content["input/input"], "cutoff"),
+        "training": "|".join(
+            Project(".").inspect(tid).name for tid in j["input/training_job_ids"]
+        ),
+        "weight": weight,
+        "ladder": tuple(ladder) if ladder else ladder,
+        "iterations": fit["maxiter"],
     }
 
+
 MLIP_PARAM_FUNCTIONS = {
-        "Mlip": get_mlip_parameters,
-        "Pacemaker2022": get_ace_parameters
+    "Mlip": get_mlip_parameters,
+    "Pacemaker2022": get_ace_parameters,
 }
+
 
 # exists just so we can cache it
 @lru_cache
 def get_potential_id_properties(id: int) -> dict:
-    j = Project('.').inspect(id)
+    j = Project(".").inspect(id)
     return get_potential_properties(j)
+
 
 def get_potential_properties(j) -> dict:
     try:
         return MLIP_PARAM_FUNCTIONS[j.__name__](j)
     except KeyError as e:
         if e.args[0] == j.__name__:
-            raise ValueError(f"Unknown MLIP job type '{j.__name__}'! Must be either a Mlip or a PacemakerJob!") from None
+            raise ValueError(
+                f"Unknown MLIP job type '{j.__name__}'! Must be either a Mlip or a PacemakerJob!"
+            ) from None
         else:
             raise
 
+
 def get_potentials_properties(job_ids: Iterable[int]) -> pd.DataFrame:
     return pd.DataFrame([get_potential_id_properties(j) for j in job_ids])
+
 
 # Generic config objects for all tools
 

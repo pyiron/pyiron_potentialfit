@@ -121,13 +121,20 @@ def run_container(pr: Project, cont: "StructureContainer", config: CalculationCo
             match config.min_dist:
                 case float():
                     dfilter = DistanceFilter(
-                        {el: config.min_dist / 2 for el in cont._container.get_elements()}
+                        {
+                            el: config.min_dist / 2
+                            for el in cont._container.get_elements()
+                        }
                     )
                 case dict():
                     dfilter = DistanceFilter(config.min_dist)
                 case _:
-                    assert False, f"min_dist cannot by of type {type(config.min_dist)}: {config.min_dist}!"
-            filtered_cont = cont._container.sample(lambda f, i: dfilter(f.get_structure(i)))
+                    assert (
+                        False
+                    ), f"min_dist cannot by of type {type(config.min_dist)}: {config.min_dist}!"
+            filtered_cont = cont._container.sample(
+                lambda f, i: dfilter(f.get_structure(i))
+            )
         else:
             filtered_cont = cont._container.copy()
 
@@ -177,7 +184,7 @@ def run(
     config: CalculationConfig,
     *containers: "StructureContainer",
     tries: int = 10,
-    wait: float = 60
+    wait: float = 60,
 ):
     """
     Run high quality DFT on all structures in `containers`.

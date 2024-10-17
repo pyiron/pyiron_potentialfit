@@ -42,6 +42,7 @@ def broadcast(*names):
     Args:
         *names (str): names of function arguments to wrap
     """
+
     def wrapper(func):
         @wraps(func)
         def f(*args, **kwargs):
@@ -56,7 +57,10 @@ def broadcast(*names):
                     return ret
             # unwrap all Fixed arguments first
             args = (a if not isinstance(a, Fixed) else a.value for a in boundargs.args)
-            kwargs = {k: v if not isinstance(v, Fixed) else v.value for k, v in boundargs.kwargs.items()}
+            kwargs = {
+                k: v if not isinstance(v, Fixed) else v.value
+                for k, v in boundargs.kwargs.items()
+            }
             # fall through all scalar call
             func(*args, **kwargs)
 
@@ -65,14 +69,18 @@ def broadcast(*names):
 
     return wrapper
 
+
 class Fixed:
     def __init__(self, v):
         self.v = v
+
     @property
     def value(self):
         return self.v
 
+
 broadcast.Fixed = Fixed
+
 
 def _guess_iterations(level):
     """
@@ -84,6 +92,7 @@ def _guess_iterations(level):
     """
     return 50 + 200 * level
 
+
 # The time mlip takes to take a single BFGS optimization step scales like
 #       pre * atoms * rmax * e^(exp * level)
 # where atoms is the number of atoms in the training set,
@@ -91,8 +100,9 @@ def _guess_iterations(level):
 # for the cmti cluster of MPI SusMat I estimated the parameters from jobs as
 # below
 MTP_RUNTIME_PARAMETERS = {
-        "cmti": {"pre": 1.5e-5, "exp": 1/4},
+    "cmti": {"pre": 1.5e-5, "exp": 1 / 4},
 }
+
 
 def _guess_runtime(queue, atoms, rmax, level):
     """
@@ -100,14 +110,17 @@ def _guess_runtime(queue, atoms, rmax, level):
     """
     iterations = _guess_iterations(level)
     if queue not in MTP_RUNTIME_PARAMETERS:
-        print(f"WARNING: no performance data for queue {queue} available. "
-               "Will use data from cmti cluster and double estimate.")
+        print(
+            f"WARNING: no performance data for queue {queue} available. "
+            "Will use data from cmti cluster and double estimate."
+        )
         # just use the iterations as a shortcut to increase total estimate
         iterations *= 2
         queue = "cmti"
     pre = MTP_RUNTIME_PARAMETERS[queue]["pre"]
     exp = MTP_RUNTIME_PARAMETERS[queue]["exp"]
-    return pre * iterations * atoms * rmax * np.exp(exp*level)
+    return pre * iterations * atoms * rmax * np.exp(exp * level)
+
 
 @broadcast("rmin", "rmax", "level")
 def fit(
@@ -191,8 +204,10 @@ def fit(
         j["user/stress_weight"] = stress_weight
 
     runtime_guess = _guess_runtime(
-            queue, sum(tc._container.num_elements for tc in training_containers),
-            rmax, level
+        queue,
+        sum(tc._container.num_elements for tc in training_containers),
+        rmax,
+        level,
     )
     if j.status.finished and refit and not j.name.endswith("_restart"):
         j = j.restart()
@@ -239,40 +254,46 @@ def fit(
     return pr
 
 
-
 from typing import Union, Iterable, Literal
 
+
 def _guess_iterations_ace(*args):
-        return 1000
+    return 1000
+
 
 def _guess_runtime_ace(queue, number_of_atoms, rmax, number_of_functions_per_element):
-        return 24*60*60
+    return 24 * 60 * 60
 
-@broadcast("rmax", "number_of_functions_per_element", "embedding", "ladder", "weighting")
+
+@broadcast(
+    "rmax", "number_of_functions_per_element", "embedding", "ladder", "weighting"
+)
 def fit_ace(
-        fit_pr: Project,
-        training_containers: Union[TrainingContainer, Iterable[TrainingContainer]],
-        rmax: Union[float, Iterable[float]],
-        number_of_functions_per_element: Union[int, Iterable[int]],
-        rmin: float | None = None,
-        iterations: int = None,
-        embedding: Iterable[Literal["linear", "sqrt"] | tuple[float]] = "sqrt",
-        ladder: bool | tuple[int, float] = False,
-        kappa=0.5,
-        weighting: Literal["convex_hull"] | None = None,
-        radial_smoothness: tuple[float, float, float] = None,
-        delete_existing_job=False,
-        queue: str = "s_cmmg",
-        cores: int = 256,
-        runtime: int = 24*60*60,
-        seed: int | None = None,
+    fit_pr: Project,
+    training_containers: Union[TrainingContainer, Iterable[TrainingContainer]],
+    rmax: Union[float, Iterable[float]],
+    number_of_functions_per_element: Union[int, Iterable[int]],
+    rmin: float | None = None,
+    iterations: int = None,
+    embedding: Iterable[Literal["linear", "sqrt"] | tuple[float]] = "sqrt",
+    ladder: bool | tuple[int, float] = False,
+    kappa=0.5,
+    weighting: Literal["convex_hull"] | None = None,
+    radial_smoothness: tuple[float, float, float] = None,
+    delete_existing_job=False,
+    queue: str = "s_cmmg",
+    cores: int = 256,
+    runtime: int = 24 * 60 * 60,
+    seed: int | None = None,
 ) -> Project:
     if isinstance(training_containers, TrainingContainer):
         training_containers = (training_containers,)
     else:
         training_containers = tuple(training_containers)
     train_name = "_".join(train.name for train in training_containers)
-    train_number_of_structures = sum(train.number_of_structures for train in training_containers)
+    train_number_of_structures = sum(
+        train.number_of_structures for train in training_containers
+    )
     pr = fit_pr.create_group(train_name)
 
     name = [f"ACE{int(number_of_functions_per_element):03}", round(rmax, 2)]
@@ -284,7 +305,7 @@ def fit_ace(
         name += ["E", *map(str, embedding)]
     if weighting:
         # name += ["W", weighting]
-        name += ["W", {'convex_hull': 'ch'}.get(weighting, weighting)]
+        name += ["W", {"convex_hull": "ch"}.get(weighting, weighting)]
     if ladder:
         name += ["L"]
         if ladder is not True:
@@ -302,11 +323,10 @@ def fit_ace(
         iterations = _guess_iterations_ace(number_of_functions_per_element)
 
     j = pr.create.job.PacemakerJob(
-            name,
-            delete_existing_job=delete_existing_job,
-            delete_aborted_job=True
+        name, delete_existing_job=delete_existing_job, delete_aborted_job=True
     )
-    if not j.status.initialized: return pr
+    if not j.status.initialized:
+        return pr
 
     j["user/number_of_functions_per_element"] = number_of_functions_per_element
     j["user/rmax"] = rmax
@@ -320,65 +340,82 @@ def fit_ace(
 
     if seed is None:
         seed = int.from_bytes(os.urandom(4))
-    j.input['data']['seed'] = seed
-    j.input['fit']['maxiter'] = iterations
-    j.input['fit']['loss']['kappa'] = kappa
+    j.input["data"]["seed"] = seed
+    j.input["fit"]["maxiter"] = iterations
+    j.input["fit"]["loss"]["kappa"] = kappa
     if radial_smoothness is not None:
         if len(radial_smoothness) != 3:
             raise ValueError("radial_smoothness must be a triple!")
-        j.input['fit']['loss']['w0_rad'] = radial_smoothness[0]
-        j.input['fit']['loss']['w1_rad'] = radial_smoothness[1]
-        j.input['fit']['loss']['w2_rad'] = radial_smoothness[2]
+        j.input["fit"]["loss"]["w0_rad"] = radial_smoothness[0]
+        j.input["fit"]["loss"]["w1_rad"] = radial_smoothness[1]
+        j.input["fit"]["loss"]["w2_rad"] = radial_smoothness[2]
     if ladder:
-        j.input['fit']['ladder_step'] = list(ladder)
+        j.input["fit"]["ladder_step"] = list(ladder)
     if weighting:
-        j.input['fit']['weighting'] = {
-                'type': 'EnergyBasedWeightingPolicy',
-                'energy': weighting
+        j.input["fit"]["weighting"] = {
+            "type": "EnergyBasedWeightingPolicy",
+            "energy": weighting,
+        }
+    j.input["cutoff"] = rmax
+    j.input["potential"]["functions"][
+        "number_of_functions_per_element"
+    ] = number_of_functions_per_element
+    j.input["potential"]["functions"]["UNARY"] = {
+        "nradmax_by_orders": [15, 6, 4, 3, 2, 2],
+        "lmax_by_orders": [0, 3, 3, 2, 2, 1],
     }
-    j.input['cutoff'] = rmax
-    j.input['potential']['functions']['number_of_functions_per_element'] = number_of_functions_per_element
-    j.input['potential']['functions']['UNARY'] = {
-            'nradmax_by_orders': [ 15, 6, 4, 3, 2, 2 ],
-            'lmax_by_orders'   : [  0, 3, 3, 2, 2, 1 ]
+    j.input["potential"]["functions"]["BINARY"] = {
+        "nradmax_by_orders": [15, 6, 3, 2, 2, 1],
+        "lmax_by_orders": [0, 3, 2, 1, 1, 0],
     }
-    j.input['potential']['functions']['BINARY'] = {
-            'nradmax_by_orders': [ 15, 6, 3, 2, 2, 1 ],
-            'lmax_by_orders'   : [  0, 3, 2, 1, 1, 0 ]
-    }
-    j.input['potential']['functions']['TERNARY'] = {
-            'nradmax_by_orders': [ 15, 6, 2, 2, 1, ],
-            'lmax_by_orders'   : [  0, 3, 1, 1, 0, ]
+    j.input["potential"]["functions"]["TERNARY"] = {
+        "nradmax_by_orders": [
+            15,
+            6,
+            2,
+            2,
+            1,
+        ],
+        "lmax_by_orders": [
+            0,
+            3,
+            1,
+            1,
+            0,
+        ],
     }
     match embedding:
         case "linear":
-            j.input['potential']['embeddings']['ALL']['fs_parameters'] = [1, 1]
+            j.input["potential"]["embeddings"]["ALL"]["fs_parameters"] = [1, 1]
         case "sqrt":
-            j.input['potential']['embeddings']['ALL']['fs_parameters'] = [1, 1,  1, 0.5]
+            j.input["potential"]["embeddings"]["ALL"]["fs_parameters"] = [1, 1, 1, 0.5]
         case _:
-            j.input['potential']['embeddings']['ALL']['fs_parameters'] = list(embedding)
-    j.input['potential']['embeddings']['ALL']['ndensity'] = \
-            int(len(j.input['potential']['embeddings']['ALL']['fs_parameters'])//2)
-    j.input['potential']['bonds']['ALL']['rcut'] = rmax
+            j.input["potential"]["embeddings"]["ALL"]["fs_parameters"] = list(embedding)
+    j.input["potential"]["embeddings"]["ALL"]["ndensity"] = int(
+        len(j.input["potential"]["embeddings"]["ALL"]["fs_parameters"]) // 2
+    )
+    j.input["potential"]["bonds"]["ALL"]["rcut"] = rmax
     if rmin is not None:
-        j.input['potential']['bonds']['ALL']['r_in'] = rmin
+        j.input["potential"]["bonds"]["ALL"]["r_in"] = rmin
         # this is the delta_in applied with repulsion=auto, let's just use that
         # here as well
-        j.input['potential']['bonds']['ALL']['delta_in'] = 0.1
+        j.input["potential"]["bonds"]["ALL"]["delta_in"] = 0.1
     else:
-        j.input['fit']['repulsion'] = 'auto'
-    j.input['potential']['bonds']['ALL']['inner_cutoff_type'] = 'zbl'
-    j.input['backend']['batch_size'] = 10_000
+        j.input["fit"]["repulsion"] = "auto"
+    j.input["potential"]["bonds"]["ALL"]["inner_cutoff_type"] = "zbl"
+    j.input["backend"]["batch_size"] = 10_000
 
     if runtime is None:
-        runtime = _guess_runtime_ace(
+        runtime = (
+            _guess_runtime_ace(
                 queue,
                 sum(tc._container.num_elements for tc in training_containers),
                 rmax,
-                number_of_functions_per_element
-        ) / j.server.cores
-        runtime = 24*60*60 # FIXME:workout scaling
-
+                number_of_functions_per_element,
+            )
+            / j.server.cores
+        )
+        runtime = 24 * 60 * 60  # FIXME:workout scaling
 
     j.server.queue = queue
     j.server.cores = cores
@@ -386,7 +423,6 @@ def fit_ace(
     j.run()
 
     return pr
-
 
 
 def plot(fit_job, legend=True):
@@ -465,6 +501,7 @@ def plot(fit_job, legend=True):
     if legend:
         plt.legend()
 
+
 def _get_training_data(j):
     inpt = j["input/training_data"]
     if inpt is None:
@@ -472,12 +509,14 @@ def _get_training_data(j):
         inpt = j["output/training_data"]
     return inpt.to_object()
 
+
 def _get_predicted_data(j):
     pred = j["output/training_efs"]
     if pred is None:
         # Pacemaker layout
         pred = j["output/predicted_data"]
     return pred.to_object()
+
 
 def energy_rmse(j):
     inpt = _get_training_data(j)
@@ -527,42 +566,48 @@ def force_max(j):
 
 
 def stress_hydro_rmse(j):
-    if j.__name__ != "Mlip": return pd.NA
+    if j.__name__ != "Mlip":
+        return pd.NA
     train = np.squeeze(_get_training_data(j).get_array("stress"))
     pred = np.squeeze(_get_predicted_data(j).get_array("stress"))
     return np.sqrt(np.mean((train[:, :3] - pred[:, :3]) ** 2))
 
 
 def stress_hydro_mae(j):
-    if j.__name__ != "Mlip": return None
+    if j.__name__ != "Mlip":
+        return None
     train = np.squeeze(_get_training_data(j).get_array("stress"))
     pred = np.squeeze(_get_predicted_data(j).get_array("stress"))
     return np.abs(train[:, :3] - pred[:, :3]).mean()
 
 
 def stress_hydro_max(j):
-    if j.__name__ != "Mlip": return pd.NA
+    if j.__name__ != "Mlip":
+        return pd.NA
     train = np.squeeze(_get_training_data(j).get_array("stress"))
     pred = np.squeeze(_get_predicted_data(j).get_array("stress"))
     return np.abs(train[:, :3] - pred[:, :3]).max()
 
 
 def stress_shear_rmse(j):
-    if j.__name__ != "Mlip": return pd.NA
+    if j.__name__ != "Mlip":
+        return pd.NA
     train = np.squeeze(_get_training_data(j).get_array("stress"))
     pred = np.squeeze(_get_predicted_data(j).get_array("stress"))
     return np.sqrt(np.mean((train[:, 3:] - pred[:, 3:]) ** 2))
 
 
 def stress_shear_mae(j):
-    if j.__name__ != "Mlip": return pd.NA
+    if j.__name__ != "Mlip":
+        return pd.NA
     train = np.squeeze(_get_training_data(j).get_array("stress"))
     pred = np.squeeze(_get_predicted_data(j).get_array("stress"))
     return np.abs(train[:, 3:] - pred[:, 3:]).mean()
 
 
 def stress_shear_max(j):
-    if j.__name__ != "Mlip": return pd.NA
+    if j.__name__ != "Mlip":
+        return pd.NA
     train = np.squeeze(_get_training_data(j).get_array("stress"))
     pred = np.squeeze(_get_predicted_data(j).get_array("stress"))
     return np.abs(train[:, 3:] - pred[:, 3:]).max()

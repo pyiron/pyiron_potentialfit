@@ -153,8 +153,16 @@ def spg(
         if isinstance(min_dist, float):
             tm = Tol_matrix.from_single_value(min_dist)
         elif isinstance(min_dist, dict):
-            tm = Tol_matrix(*( (atomic_numbers[e1], atomic_numbers[e2], min_dist[e1] + min_dist[e2]) 
-                                    for e1, e2 in product(min_dist, repeat=2) ))
+            tm = Tol_matrix(
+                *(
+                    (
+                        atomic_numbers[e1],
+                        atomic_numbers[e2],
+                        min_dist[e1] + min_dist[e2],
+                    )
+                    for e1, e2 in product(min_dist, repeat=2)
+                )
+            )
         else:
             assert False, f"min_dist cannot by of type {type(min_dist)}: {min_dist}!"
     else:
@@ -192,7 +200,9 @@ def spg(
             elif isinstance(min_dist, dict):
                 distance_filter = DistanceFilter(min_dist)
             else:
-                assert False, f"min_dist cannot by of type {type(min_dist)}: {min_dist}!"
+                assert (
+                    False
+                ), f"min_dist cannot by of type {type(min_dist)}: {min_dist}!"
         el, ni = zip(*((el, ni) for el, ni in zip(elements, num_ions) if ni > 0))
         # missing checker support
         # pr.create.structure.pyxtal(

@@ -474,13 +474,13 @@ class PacemakerJob(GenericJob, PotentialFit):
 
         pot = yaml.YAML(typ="safe").load(self.content["output/potential/yaml"])
         cuts = {}
-        for sp in pot['species']:
-            elems = tuple(sorted(sp['speciesblock'].split()))
-            if 'r_in' not in sp:
+        for sp in pot["species"]:
+            elems = tuple(sorted(sp["speciesblock"].split()))
+            if "r_in" not in sp:
                 continue
             if len(elems) == 1:
                 elems = (elems[0],) * 2
-            cuts[elems] = sp['r_in']
+            cuts[elems] = sp["r_in"]
 
         df = []
         for elems, ri in cuts.items():
@@ -488,24 +488,14 @@ class PacemakerJob(GenericJob, PotentialFit):
             e = []
             for rr in r:
                 s = self.project.create.structure.atoms(
-                        elems,
-                        positions=[[0]*3, [rr, 0, 0]],
-                        cell=[50]*3
+                    elems, positions=[[0] * 3, [rr, 0, 0]], cell=[50] * 3
                 )
                 s.calc = ace
                 e.append(s.get_potential_energy())
-            df.append({
-                'pair': '-'.join(elems),
-                'r': r,
-                'e': e
-            })
+            df.append({"pair": "-".join(elems), "r": r, "e": e})
 
-        df = pd.DataFrame(df).explode(['r','e']).infer_objects()
-        sns.lineplot(
-            data=df,
-            x='r', y='e',
-            hue='pair'
-        )
+        df = pd.DataFrame(df).explode(["r", "e"]).infer_objects()
+        sns.lineplot(data=df, x="r", y="e", hue="pair")
         plt.xlabel(r"Distance [$\AA$]")
         plt.ylabel(r"Energy [eV]")
         return df
