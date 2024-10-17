@@ -1,3 +1,4 @@
+import os
 import os.path
 from functools import wraps
 from inspect import signature
@@ -12,7 +13,7 @@ import numpy as np
 import pandas as pd
 from tqdm.auto import tqdm
 
-from ..assyst.util import get_table, read_generic_parameters
+from ..assyst.util import get_table, read_generic_parameters, get_potential_properties
 
 
 def broadcast(*names):
@@ -49,17 +50,76 @@ def broadcast(*names):
             for name, value in boundargs.arguments.items():
                 if name not in names:
                     continue
-                if isinstance(value, Iterable):
+                if isinstance(value, Iterable) and not isinstance(value, str):
                     for v in value:
                         boundargs.arguments[name] = v
                         ret = f(*boundargs.args, **boundargs.kwargs)
                     return ret
+            # unwrap all Fixed arguments first
+            args = (a if not isinstance(a, Fixed) else a.value for a in boundargs.args)
+            kwargs = {
+                k: v if not isinstance(v, Fixed) else v.value
+                for k, v in boundargs.kwargs.items()
+            }
             # fall through all scalar call
-            func(*boundargs.args, **boundargs.kwargs)
+            func(*args, **kwargs)
 
+        f.Fixed = Fixed
         return f
 
     return wrapper
+
+
+class Fixed:
+    def __init__(self, v):
+        self.v = v
+
+    @property
+    def value(self):
+        return self.v
+
+
+broadcast.Fixed = Fixed
+
+
+def _guess_iterations(level):
+    """
+    Guess the number of BGFS iterations mlip does internally.
+
+    Numbers chosen by fair dice roll,... err, analysis of some 1k mlip fit done
+    on the cmti cluster of MPI SusMat.  Neither the cut off nor the number of
+    stuctures/atoms seems to impact this, so fit a line and rounded up.
+    """
+    return 50 + 200 * level
+
+
+# The time mlip takes to take a single BFGS optimization step scales like
+#       pre * atoms * rmax * e^(exp * level)
+# where atoms is the number of atoms in the training set,
+# rmax is the outer cutoff, and level is the potential level.
+# for the cmti cluster of MPI SusMat I estimated the parameters from jobs as
+# below
+MTP_RUNTIME_PARAMETERS = {
+    "cmti": {"pre": 1.5e-5, "exp": 1 / 4},
+}
+
+
+def _guess_runtime(queue, atoms, rmax, level):
+    """
+    Estimate the amount of seconds an mlip job will take on known hardware
+    """
+    iterations = _guess_iterations(level)
+    if queue not in MTP_RUNTIME_PARAMETERS:
+        print(
+            f"WARNING: no performance data for queue {queue} available. "
+            "Will use data from cmti cluster and double estimate."
+        )
+        # just use the iterations as a shortcut to increase total estimate
+        iterations *= 2
+        queue = "cmti"
+    pre = MTP_RUNTIME_PARAMETERS[queue]["pre"]
+    exp = MTP_RUNTIME_PARAMETERS[queue]["exp"]
+    return pre * iterations * atoms * rmax * np.exp(exp * level)
 
 
 @broadcast("rmin", "rmax", "level")
@@ -69,12 +129,14 @@ def fit(
     rmin: Union[float, Iterable[float]],
     rmax: Union[float, Iterable[float]],
     level: Union[int, Iterable[int]],
-    iterations: int = 5000,
+    iterations: int = None,
     energy_weight: float = None,
     force_weight: float = None,
     stress_weight: float = None,
-    refit: bool = True,
+    refit: bool = False,
     delete_existing_job=False,
+    queue: str = "cmti",
+    cores: int = 40,
 ) -> Project:
     """
     Fit a potential to the given structures.
@@ -95,6 +157,10 @@ def fit(
         refit (bool): if True and the fit to be created already exists, start a
                       refit
         delete_existing_job (float): remove old job before creating new one
+        queue (str): name of pyiron queue to submit jobs to
+        cores (int): how many cores to use for each fit (beware: modified in a
+                     non-trivial way depending on potential level and number of training
+                     structures)
     """
     if isinstance(training_containers, TrainingContainer):
         training_containers = (training_containers,)
@@ -116,6 +182,12 @@ def fit(
     if stress_weight is not None:
         name += ["S", stress_weight]
 
+    # supply default after we make the job name, so that user supplied values
+    # always force a unique job name and job tables are not littered by random
+    # numbers
+    if iterations is None:
+        iterations = _guess_iterations(level)
+
     j = pr.create.job.Mlip(
         name, delete_existing_job=delete_existing_job, delete_aborted_job=True
     )
@@ -130,27 +202,35 @@ def fit(
         j["user/force_weight"] = force_weight
     if stress_weight is not None:
         j["user/stress_weight"] = stress_weight
+
+    runtime_guess = _guess_runtime(
+        queue,
+        sum(tc._container.num_elements for tc in training_containers),
+        rmax,
+        level,
+    )
     if j.status.finished and refit and not j.name.endswith("_restart"):
         j = j.restart()
         j["user/refit"] = True
-        j.server.queue = "cmti"
-        if level < 16:
-            j.server.cores = 40
-        if level < 24:
-            j.server.cores = 80
+        j.server.queue = queue
+        j.server.cores = cores
+        if 16 < level < 24:
+            j.server.cores *= 2
         else:
-            j.server.cores = 120
-        j.server.run_time = 0.5 * level * train_number_of_structures
+            j.server.cores *= 4
+        j.server.cores *= int(np.ceil(train_number_of_structures / 20_000))
+        j.server.cores = min(j.server.cores, 160)
+        j.server.run_time = runtime_guess / j.server.cores
         j.run()
         return pr
     if not j.status.initialized:
         return pr
 
-    for train in training_containers:
-        j.add_job_to_fitting(train.id, 0, train.number_of_structures - 1, 1)
     j.input["potential"] = level
     j.input["min_dist"] = rmin
     j.input["max_dist"] = rmax
+    for train in training_containers:
+        j.add_training_data(train)
     if iterations is not None:
         j.input["iteration"] = iterations
     if energy_weight is not None:
@@ -159,16 +239,187 @@ def fit(
         j.input["force-weight"] = force_weight
     if stress_weight is not None:
         j.input["stress-weight"] = stress_weight
-    j.server.queue = "cmti"
-    if level < 16:
-        j.server.cores = 20
-    if level < 24:
-        j.server.cores = 40
+    j.server.queue = queue
+    j.server.queue = queue
+    j.server.cores = cores
+    if 16 < level < 24:
+        j.server.cores *= 2
     else:
-        j.server.cores = 80
+        j.server.cores *= 4
     j.server.cores *= int(np.ceil(train_number_of_structures / 20_000))
-    j.server.run_time = 0.5 * level * train_number_of_structures
-    j.server.cores = min(j.server.cores, 8 * 40)
+    j.server.cores = min(j.server.cores, 160)
+    j.server.run_time = runtime_guess / j.server.cores
+    j.run()
+
+    return pr
+
+
+from typing import Union, Iterable, Literal
+
+
+def _guess_iterations_ace(*args):
+    return 1000
+
+
+def _guess_runtime_ace(queue, number_of_atoms, rmax, number_of_functions_per_element):
+    return 24 * 60 * 60
+
+
+@broadcast(
+    "rmax", "number_of_functions_per_element", "embedding", "ladder", "weighting"
+)
+def fit_ace(
+    fit_pr: Project,
+    training_containers: Union[TrainingContainer, Iterable[TrainingContainer]],
+    rmax: Union[float, Iterable[float]],
+    number_of_functions_per_element: Union[int, Iterable[int]],
+    rmin: float | None = None,
+    iterations: int = None,
+    embedding: Iterable[Literal["linear", "sqrt"] | tuple[float]] = "sqrt",
+    ladder: bool | tuple[int, float] = False,
+    kappa=0.5,
+    weighting: Literal["convex_hull"] | None = None,
+    radial_smoothness: tuple[float, float, float] = None,
+    delete_existing_job=False,
+    queue: str = "s_cmmg",
+    cores: int = 256,
+    runtime: int = 24 * 60 * 60,
+    seed: int | None = None,
+) -> Project:
+    if isinstance(training_containers, TrainingContainer):
+        training_containers = (training_containers,)
+    else:
+        training_containers = tuple(training_containers)
+    train_name = "_".join(train.name for train in training_containers)
+    train_number_of_structures = sum(
+        train.number_of_structures for train in training_containers
+    )
+    pr = fit_pr.create_group(train_name)
+
+    name = [f"ACE{int(number_of_functions_per_element):03}", round(rmax, 2)]
+    if rmin is not None:
+        name.insert(1, round(rmin, 2))
+    if isinstance(embedding, str):
+        name += ["E", embedding]
+    else:
+        name += ["E", *map(str, embedding)]
+    if weighting:
+        # name += ["W", weighting]
+        name += ["W", {"convex_hull": "ch"}.get(weighting, weighting)]
+    if ladder:
+        name += ["L"]
+        if ladder is not True:
+            name += list(ladder)
+        else:
+            ladder = (10, 0.02)
+    if iterations is not None:
+        name += ["I", iterations]
+    if seed is not None:
+        name += ["S", seed]
+
+    # supply default after we make the job name, so that user supplied values always force a unique job name and
+    # job tables are not littered by random numbers
+    if iterations is None:
+        iterations = _guess_iterations_ace(number_of_functions_per_element)
+
+    j = pr.create.job.PacemakerJob(
+        name, delete_existing_job=delete_existing_job, delete_aborted_job=True
+    )
+    if not j.status.initialized:
+        return pr
+
+    j["user/number_of_functions_per_element"] = number_of_functions_per_element
+    j["user/rmax"] = rmax
+    j["user/kappa"] = kappa
+    j["user/iterations"] = iterations
+    if ladder:
+        j["user/ladder"] = ladder
+
+    for c in training_containers:
+        j.add_training_data(c)
+
+    if seed is None:
+        seed = int.from_bytes(os.urandom(4))
+    j.input["data"]["seed"] = seed
+    j.input["fit"]["maxiter"] = iterations
+    j.input["fit"]["loss"]["kappa"] = kappa
+    if radial_smoothness is not None:
+        if len(radial_smoothness) != 3:
+            raise ValueError("radial_smoothness must be a triple!")
+        j.input["fit"]["loss"]["w0_rad"] = radial_smoothness[0]
+        j.input["fit"]["loss"]["w1_rad"] = radial_smoothness[1]
+        j.input["fit"]["loss"]["w2_rad"] = radial_smoothness[2]
+    if ladder:
+        j.input["fit"]["ladder_step"] = list(ladder)
+    if weighting:
+        j.input["fit"]["weighting"] = {
+            "type": "EnergyBasedWeightingPolicy",
+            "energy": weighting,
+        }
+    j.input["cutoff"] = rmax
+    j.input["potential"]["functions"][
+        "number_of_functions_per_element"
+    ] = number_of_functions_per_element
+    j.input["potential"]["functions"]["UNARY"] = {
+        "nradmax_by_orders": [15, 6, 4, 3, 2, 2],
+        "lmax_by_orders": [0, 3, 3, 2, 2, 1],
+    }
+    j.input["potential"]["functions"]["BINARY"] = {
+        "nradmax_by_orders": [15, 6, 3, 2, 2, 1],
+        "lmax_by_orders": [0, 3, 2, 1, 1, 0],
+    }
+    j.input["potential"]["functions"]["TERNARY"] = {
+        "nradmax_by_orders": [
+            15,
+            6,
+            2,
+            2,
+            1,
+        ],
+        "lmax_by_orders": [
+            0,
+            3,
+            1,
+            1,
+            0,
+        ],
+    }
+    match embedding:
+        case "linear":
+            j.input["potential"]["embeddings"]["ALL"]["fs_parameters"] = [1, 1]
+        case "sqrt":
+            j.input["potential"]["embeddings"]["ALL"]["fs_parameters"] = [1, 1, 1, 0.5]
+        case _:
+            j.input["potential"]["embeddings"]["ALL"]["fs_parameters"] = list(embedding)
+    j.input["potential"]["embeddings"]["ALL"]["ndensity"] = int(
+        len(j.input["potential"]["embeddings"]["ALL"]["fs_parameters"]) // 2
+    )
+    j.input["potential"]["bonds"]["ALL"]["rcut"] = rmax
+    if rmin is not None:
+        j.input["potential"]["bonds"]["ALL"]["r_in"] = rmin
+        # this is the delta_in applied with repulsion=auto, let's just use that
+        # here as well
+        j.input["potential"]["bonds"]["ALL"]["delta_in"] = 0.1
+    else:
+        j.input["fit"]["repulsion"] = "auto"
+    j.input["potential"]["bonds"]["ALL"]["inner_cutoff_type"] = "zbl"
+    j.input["backend"]["batch_size"] = 10_000
+
+    if runtime is None:
+        runtime = (
+            _guess_runtime_ace(
+                queue,
+                sum(tc._container.num_elements for tc in training_containers),
+                rmax,
+                number_of_functions_per_element,
+            )
+            / j.server.cores
+        )
+        runtime = 24 * 60 * 60  # FIXME:workout scaling
+
+    j.server.queue = queue
+    j.server.cores = cores
+    j.server.run_time = runtime
     j.run()
 
     return pr
@@ -251,91 +502,119 @@ def plot(fit_job, legend=True):
         plt.legend()
 
 
+def _get_training_data(j):
+    inpt = j["input/training_data"]
+    if inpt is None:
+        # Pacemaker layout
+        inpt = j["output/training_data"]
+    return inpt.to_object()
+
+
+def _get_predicted_data(j):
+    pred = j["output/training_efs"]
+    if pred is None:
+        # Pacemaker layout
+        pred = j["output/predicted_data"]
+    return pred.to_object()
+
+
 def energy_rmse(j):
-    inpt = j["input/training_data"].to_object()
+    inpt = _get_training_data(j)
     N = inpt.get_array("length")
     train = np.squeeze(inpt.get_array("energy")) / N
-    pred = np.squeeze(j["output/training_efs"].to_object().get_array("energy")) / N
+    pred = np.squeeze(_get_predicted_data(j).get_array("energy")) / N
     return np.sqrt(np.mean((train - pred) ** 2))
 
 
 def energy_mae(j):
-    inpt = j["input/training_data"].to_object()
+    inpt = _get_training_data(j)
     N = inpt.get_array("length")
     train = np.squeeze(inpt.get_array("energy")) / N
-    pred = np.squeeze(j["output/training_efs"].to_object().get_array("energy")) / N
+    pred = np.squeeze(_get_predicted_data(j).get_array("energy")) / N
     return np.abs(train - pred).mean()
 
 
 def energy_max(j):
-    inpt = j["input/training_data"].to_object()
+    inpt = _get_training_data(j)
     N = inpt.get_array("length")
     train = np.squeeze(inpt.get_array("energy")) / N
-    pred = np.squeeze(j["output/training_efs"].to_object().get_array("energy")) / N
+    pred = np.squeeze(_get_predicted_data(j).get_array("energy")) / N
     return np.abs(train - pred).max()
 
 
 def force_rmse(j):
-    inpt = j["input/training_data"].to_object()
+    inpt = _get_training_data(j)
     train = np.squeeze(inpt.get_array("forces"))
-    pred = np.squeeze(j["output/training_efs"].to_object().get_array("forces"))
+    pred = np.squeeze(_get_predicted_data(j).get_array("forces"))
     return np.sqrt(np.mean(np.linalg.norm(train - pred, axis=-1) ** 2))
 
 
 def force_mae(j):
-    inpt = j["input/training_data"].to_object()
+    inpt = _get_training_data(j)
     N = inpt.get_array("length")
     train = np.squeeze(inpt.get_array("forces"))
-    pred = np.squeeze(j["output/training_efs"].to_object().get_array("forces"))
+    pred = np.squeeze(_get_predicted_data(j).get_array("forces"))
     return np.mean(np.linalg.norm(train - pred, axis=-1))
 
 
 def force_max(j):
-    inpt = j["input/training_data"].to_object()
+    inpt = _get_training_data(j)
     N = inpt.get_array("length")
     train = np.squeeze(inpt.get_array("forces"))
-    pred = np.squeeze(j["output/training_efs"].to_object().get_array("forces"))
+    pred = np.squeeze(_get_predicted_data(j).get_array("forces"))
     return np.abs(train - pred).max()
 
 
 def stress_hydro_rmse(j):
-    train = np.squeeze(j["input/training_data"].to_object().get_array("stress"))
-    pred = np.squeeze(j["output/training_efs"].to_object().get_array("stress"))
+    if j.__name__ != "Mlip":
+        return pd.NA
+    train = np.squeeze(_get_training_data(j).get_array("stress"))
+    pred = np.squeeze(_get_predicted_data(j).get_array("stress"))
     return np.sqrt(np.mean((train[:, :3] - pred[:, :3]) ** 2))
 
 
 def stress_hydro_mae(j):
-    train = np.squeeze(j["input/training_data"].to_object().get_array("stress"))
-    pred = np.squeeze(j["output/training_efs"].to_object().get_array("stress"))
+    if j.__name__ != "Mlip":
+        return None
+    train = np.squeeze(_get_training_data(j).get_array("stress"))
+    pred = np.squeeze(_get_predicted_data(j).get_array("stress"))
     return np.abs(train[:, :3] - pred[:, :3]).mean()
 
 
 def stress_hydro_max(j):
-    train = np.squeeze(j["input/training_data"].to_object().get_array("stress"))
-    pred = np.squeeze(j["output/training_efs"].to_object().get_array("stress"))
+    if j.__name__ != "Mlip":
+        return pd.NA
+    train = np.squeeze(_get_training_data(j).get_array("stress"))
+    pred = np.squeeze(_get_predicted_data(j).get_array("stress"))
     return np.abs(train[:, :3] - pred[:, :3]).max()
 
 
 def stress_shear_rmse(j):
-    train = np.squeeze(j["input/training_data"].to_object().get_array("stress"))
-    pred = np.squeeze(j["output/training_efs"].to_object().get_array("stress"))
+    if j.__name__ != "Mlip":
+        return pd.NA
+    train = np.squeeze(_get_training_data(j).get_array("stress"))
+    pred = np.squeeze(_get_predicted_data(j).get_array("stress"))
     return np.sqrt(np.mean((train[:, 3:] - pred[:, 3:]) ** 2))
 
 
 def stress_shear_mae(j):
-    train = np.squeeze(j["input/training_data"].to_object().get_array("stress"))
-    pred = np.squeeze(j["output/training_efs"].to_object().get_array("stress"))
+    if j.__name__ != "Mlip":
+        return pd.NA
+    train = np.squeeze(_get_training_data(j).get_array("stress"))
+    pred = np.squeeze(_get_predicted_data(j).get_array("stress"))
     return np.abs(train[:, 3:] - pred[:, 3:]).mean()
 
 
 def stress_shear_max(j):
-    train = np.squeeze(j["input/training_data"].to_object().get_array("stress"))
-    pred = np.squeeze(j["output/training_efs"].to_object().get_array("stress"))
+    if j.__name__ != "Mlip":
+        return pd.NA
+    train = np.squeeze(_get_training_data(j).get_array("stress"))
+    pred = np.squeeze(_get_predicted_data(j).get_array("stress"))
     return np.abs(train[:, 3:] - pred[:, 3:]).max()
 
 
 def energy_spread(j):
-    train = j["input/training_data"].to_object()
+    train = _get_training_data(j)
     return np.ptp(train.get_array("energy").ravel() / train.get_array("length"))
 
 
@@ -375,15 +654,8 @@ def analyze(fit_pr: Project, delete_existing_job=False):
 
     def add(tab):
         tab.analysis_project = fit_pr
-        tab.filter_function = tab.filter.job_type("Mlip")
-        # GOTCHA: technically this can be anything; but we only ever fit() Alex' predefined potentials where the
-        # name corresponds exactly to the level
-        tab.add["level"] = lambda j: int(
-            read_generic_parameters(j["mlip_inp"], "potential")
-        )
-        tab.add["rmin"] = lambda j: read_generic_parameters(j["mlip_inp"], "min_dist")
-        tab.add["rmax"] = lambda j: read_generic_parameters(j["mlip_inp"], "max_dist")
-        tab.add["refit"] = lambda j: j.name.endswith("refit")
+        tab.db_filter_function = lambda df: df.hamilton.isin(["Mlip", "Pacemaker2022"])
+        tab.add._user_function_dict["potprops"] = get_potential_properties
         tab.add["energy_spread"] = energy_spread
         tab.add["energy_rmse"] = energy_rmse
         tab.add["energy_mae"] = energy_mae
@@ -397,20 +669,15 @@ def analyze(fit_pr: Project, delete_existing_job=False):
         tab.add["stress_shear_rmse"] = stress_shear_rmse
         tab.add["stress_shear_mae"] = stress_shear_mae
         tab.add["stress_shear_max"] = stress_shear_max
-        tab.add["training"] = lambda j: "|".join(
-            j.project.inspect(jid).name for jid in j.content.input["job_id_list"]
-        )
-        tab.add["potential"] = lambda j: j["input/potential/Filename"][0]
-        # tab.add['project'] = lambda j: j.project.name
-        # tab.add['parent_project'] = lambda j: j.project['..'].name
-        tab.add["potential"] = lambda j: os.path.join(
-            j.working_directory, "Trained.mtp_"
-        )
 
     tab = get_table(
         fit_pr, "level_error_table", add, delete_existing_job=delete_existing_job
     )
     df = tab.get_dataframe()
+    if len(df) == 0:
+        return df
+    # get_potential_properties adds the job id as well, so drop one
+    df.drop("id", axis="columns", inplace=True)
 
     # Melt table to have easy seaborn plotting later
     errors = [
@@ -428,12 +695,15 @@ def analyze(fit_pr: Project, delete_existing_job=False):
         "stress_shear_mae",
         "stress_shear_max",
     ]
-    cols = [c for c in df.columns if c not in errors]
+    errors = set(errors).intersection(df.columns)
+    cols = set(df.columns).difference(errors)
     df = df.melt(id_vars=cols, value_vars=errors, value_name="error")
     vv = df.variable.str.rsplit("_", expand=True, n=1)
     vv.columns = ["quantity", "metric"]
     df = pd.concat([df.drop("variable", axis="columns"), vv], axis="columns")
     df.metric = df.metric.str.upper()
+    # stress errors not defined on ACE, drop entries
+    df = df.query("model != 'ACE' or not quantity.str.startswith('stress')")
 
     return df
 
