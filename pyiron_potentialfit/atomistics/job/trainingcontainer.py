@@ -29,6 +29,7 @@ Fe_bcc  ...
 """
 
 from typing import Callable, Dict, Any, Optional
+from collections import Counter
 
 import numpy as np
 import pandas as pd
@@ -293,6 +294,20 @@ class TrainingContainer(GenericJob, HasStructure):
             :class:`pyiron_atomistics.atomistitcs.structure.atoms.Atoms`, arrays: every structure attached to the object and queried arrays
         """
         yield from self._container.iter(*arrays, wrap_atoms=wrap_atoms)
+
+    def subtract_reference(self, reference_energies: dict[str, float]):
+        """
+        Subtract Atomic energies from structure energies.
+
+        Must be called before the job is run!
+        The original energy is kept in a new array "energy_uncorrected".
+
+        Args:
+            reference_energies (dict): a dictionary from element symbols to the energy of their isolated atoms.
+        """
+        if not self.status.initialized:
+            raise ValueError(f"Must be called before job is run, not in state: '{self.status}'!")
+        self._container.subtract_reference(reference_energies)
 
 
 class TrainingPlots(StructurePlots):
@@ -670,3 +685,20 @@ class TrainingStorage(StructureStorage):
         if self._plots is None:
             self._plots = TrainingPlots(self)
         return self._plots
+
+    def subtract_reference(self, reference_energies: dict[str, float]):
+        """
+        Subtract Atomic energies from structure energies.
+
+        The original energy is kept in a new array "energy_uncorrected".
+
+        Args:
+            reference_energies (dict): a dictionary from element symbols to the energy of their isolated atoms.
+        """
+        elements = self.get_elements()
+        if not set(reference_energies).issuperset(elements):
+            raise ValueError(f"Must specify reference energies for all present elements: {elements}!")
+        counts = list(map(Counter, self.get_array_ragged('symbols')))
+        bias = np.array([sum(reference_energies[e] * c[e] for e in elements) for c in counts])
+        self._per_chunk_arrays['energy_uncorrected'] = self._per_chunk_arrays['energy'].copy()
+        self._per_chunk_arrays['energy'][:self.num_chunks] -= bias

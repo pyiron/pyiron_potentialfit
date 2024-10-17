@@ -257,6 +257,7 @@ def combine(
     containers: Iterable[TrainingContainer],
     name="Everything",
     min_dist=None,
+    reference_energies=None,
     force_cap=None,
     energy_cap=None,
     check_duplicates=True,
@@ -270,7 +271,10 @@ def combine(
         containers (iterable of TrainingContainer): containers to combine
         min_dist (float or dict of str to float, optional): if given, filter structures that are have atoms than this;
                 if a dict it specifies the minimal allowed radii of each element
+        reference_energies (dict of str to float): energies of the isolated atoms; if present will be subtracted from
+                the raw energies present in all containers; do not pass when input energies are already corrected
         force_cap (float): filter structures that have atomic forces larger than this value
+        energy_cap (float): filter structures that have larger energy (uncorrected) than this value
         check_duplicates (bool): discard duplicated structures; some care has been taken to optimize this, but it can be
                 costly for large datasets
         delete_existing_job (bool): combine containers again, even if `pr[name]` exists already
@@ -332,6 +336,8 @@ def combine(
         every.save()
         every.status.finished = True
         every = deduplicate(every, replace=True)
+    if reference_energies is not None:
+        every.subtract_reference(reference_energies)
     every.input.save_neighbors = True
     every.input.num_neighbors = 150
     every.server.queue = "cmti"
