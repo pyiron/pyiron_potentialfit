@@ -40,6 +40,7 @@ class VaspConfig:
     encut: Optional[float] = None
     # if float interpreted as k mesh spacing
     kmesh: Optional[Union[int, float, KMeshSpec]] = None
+    empty_states: Optional[float] = None
     incar: dict = field(default_factory=dict)
 
     # pyiron executable version name
@@ -70,6 +71,8 @@ class VaspConfig:
             job.potential[element] = path
         if self.magmoms is not None and self.magmoms != {} and 'LORBIT' not in self.incar:
             self.incar['LORBIT'] = 10
+        if self.empty_states is not None:
+            job.set_empty_states(self.empty_states)
         for k, v in self.incar.items():
             try:
                 job.input.incar[k] = v
