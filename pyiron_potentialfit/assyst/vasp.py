@@ -69,8 +69,12 @@ class VaspConfig:
             self.kmesh.configure(job)
         for element, path in self.potcars.items():
             job.potential[element] = path
-        if self.magmoms is not None and self.magmoms != {} and 'LORBIT' not in self.incar:
-            self.incar['LORBIT'] = 10
+        if (
+            self.magmoms is not None
+            and self.magmoms != {}
+            and "LORBIT" not in self.incar
+        ):
+            self.incar["LORBIT"] = 10
         if self.empty_states is not None:
             job.set_empty_states(self.empty_states)
         for k, v in self.incar.items():

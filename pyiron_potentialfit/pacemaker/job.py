@@ -397,11 +397,14 @@ class PacemakerJob(GenericJob, PotentialFit):
         super().to_hdf(hdf=hdf, group_name=group_name)
         with self.project_hdf5.open("input") as h5in:
             self.input.to_hdf(h5in)
+        self.project_hdf5["input/training_job_ids"] = self._train_job_id_list
 
     def from_hdf(self, hdf=None, group_name=None):
         super().from_hdf(hdf=hdf, group_name=group_name)
         with self.project_hdf5.open("input") as h5in:
             self.input.from_hdf(h5in)
+        if "training_job_ids" in self.project_hdf5["input"].list_nodes():
+            self._train_job_id_list = self.project_hdf5["input/training_job_ids"]
 
     def get_final_potential_filename(self):
         return os.path.join(self.working_directory, "output_potential.yaml")
