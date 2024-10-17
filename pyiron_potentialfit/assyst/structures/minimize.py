@@ -69,10 +69,12 @@ class MinimizeVaspFlow(ProjectFlow):
         vasp = VaspFactory()
         # AlH specific hack, VaspFactory ignores this for other structures automatically
         vasp.enable_nband_hack({"Al": 2, "H": 2})  # = 3/2 + 1/2 VASP default
-        vasp_config.configure_vasp_job(vasp)
-        server_config.configure_server_on_job(vasp)
 
         if self.input.degrees_of_freedom == "volume":
+            ediffg = vasp_config.incar.get("EDIFFG", 10*vasp_config.incar["EDIFF"])
+            if ediffg < 0:
+                # user tries to set force tolerance which won't work for volume minimization!
+                del vasp_config.incar['EDIFFG']
             vasp.minimize_volume()
         elif self.input.degrees_of_freedom == "all":
             vasp.minimize_all()
@@ -83,6 +85,8 @@ class MinimizeVaspFlow(ProjectFlow):
                 False
             ), f"DoF cannot be {self.input.degrees_of_freedom}, traitlets broken?"
 
+        server_config.configure_server_on_job(vasp)
+        vasp_config.configure_vasp_job(vasp)
         sflow.input.job = vasp
         if vasp_config.magmoms is not None and len(vasp_config.magmoms) > 0:
 
