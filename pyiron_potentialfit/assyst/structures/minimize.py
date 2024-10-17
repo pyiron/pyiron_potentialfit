@@ -71,10 +71,10 @@ class MinimizeVaspFlow(ProjectFlow):
         vasp.enable_nband_hack({"Al": 2, "H": 2})  # = 3/2 + 1/2 VASP default
 
         if self.input.degrees_of_freedom == "volume":
-            ediffg = vasp_config.incar.get("EDIFFG", 10*vasp_config.incar["EDIFF"])
+            ediffg = vasp_config.incar.get("EDIFFG", 10 * vasp_config.incar["EDIFF"])
             if ediffg < 0:
                 # user tries to set force tolerance which won't work for volume minimization!
-                del vasp_config.incar['EDIFFG']
+                del vasp_config.incar["EDIFFG"]
             vasp.minimize_volume()
         elif self.input.degrees_of_freedom == "all":
             vasp.minimize_all()
