@@ -1,6 +1,8 @@
 from dataclasses import asdict
 from logging import getLogger
 
+import numpy as np
+
 from ..util import ServerConfig
 from ..vasp import VaspConfig
 from ..projectflow import (

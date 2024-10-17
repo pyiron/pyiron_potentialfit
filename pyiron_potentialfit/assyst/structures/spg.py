@@ -6,6 +6,7 @@ from pyiron_atomistics import ase_to_pyiron
 from pyiron_atomistics.atomistics.structure.atoms import Atoms
 from pyiron_atomistics.atomistics.structure.structurestorage import StructureStorage
 
+from ase.data import atomic_numbers
 from tqdm.auto import tqdm
 from pyxtal import pyxtal
 from pyxtal.msg import Comp_CompatibilityError, VolumeError
