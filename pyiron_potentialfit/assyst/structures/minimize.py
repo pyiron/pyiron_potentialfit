@@ -188,7 +188,10 @@ def minimize(
     minf = MinimizeVaspFlow(pr, f"{cont.name}{n}")
 
     vasp.incar.setdefault("ISYM", 0)
+    vasp.incar.setdefault("IBRION", 2)
+    vasp.incar.setdefault("POTIM", 0.1)
     vasp.incar.setdefault("EDIFF", 1e-6)
+
     if server.queue is None:
         server.queue = "cmti"
 
