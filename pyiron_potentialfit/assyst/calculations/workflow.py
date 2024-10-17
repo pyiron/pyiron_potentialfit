@@ -118,17 +118,18 @@ def run_container(pr: Project, cont: "StructureContainer", config: CalculationCo
 
     def if_new(train):
         if config.min_dist is not None:
-            if isinstance(config.min_dist, float):
-                dfilter = DistanceFilter(
-                    {el: config.min_dist / 2 for el in cont._container.get_elements()}
-                )
-            elif isinstance(config.min_dist, dict):
-                dfilter = DistanceFilter(config.min_dist)
-            else:
-                assert False, f"min_dist cannot by of type {type(config.min_dist)}: {config.min_dist}!"
+            match config.min_dist:
+                case float():
+                    dfilter = DistanceFilter(
+                        {el: config.min_dist / 2 for el in cont._container.get_elements()}
+                    )
+                case dict():
+                    dfilter = DistanceFilter(config.min_dist)
+                case _:
+                    assert False, f"min_dist cannot by of type {type(config.min_dist)}: {config.min_dist}!"
+            filtered_cont = cont._container.sample(lambda f, i: dfilter(f.get_structure(i)))
         else:
-            dfilter = DistanceFilter()
-        filtered_cont = cont._container.sample(lambda f, i: dfilter(f.get_structure(i)))
+            filtered_cont = cont._container.copy()
 
         if train.input.read_only:
             train.input.unlock()
