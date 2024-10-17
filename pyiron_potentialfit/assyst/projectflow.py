@@ -431,6 +431,7 @@ class StructureProjectFlow(ProjectFlow):
         for i, structure in tqdm(
             enumerate(self.input.structures.iter_structures()),
             total=len(self.input.structures),
+            desc="Submitting structures"
         ):
 
             def modify(job):
