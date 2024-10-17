@@ -203,6 +203,13 @@ def minimize(
         flow.input.vasp_config = asdict(vasp)
         flow.input.degrees_of_freedom = degrees_of_freedom
         flow.input.server_config = asdict(server)
+        # tricky: I kind of do not want to filter here
+        # if a dict it's a dict of atomic radii, MinimizeVaspInput can only
+        # understand scalars for now, so take twice the smallest radius
+        # if isinstance(min_dist, dict):
+        #     flow.input.min_dist = 2 * min(min_dist.values())
+        # else:
+        #     flow.input.min_dist = min_dist
         flow.run(delete_existing_job=workflow.delete_existing_job)
         raise RunAgain("Just starting!")
 
