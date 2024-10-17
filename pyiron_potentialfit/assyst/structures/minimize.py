@@ -1,6 +1,8 @@
 from dataclasses import asdict
 from logging import getLogger
 
+import numpy as np
+
 from ..util import ServerConfig
 from ..vasp import VaspConfig
 from ..projectflow import (
@@ -67,10 +69,12 @@ class MinimizeVaspFlow(ProjectFlow):
         vasp = VaspFactory()
         # AlH specific hack, VaspFactory ignores this for other structures automatically
         vasp.enable_nband_hack({"Al": 2, "H": 2})  # = 3/2 + 1/2 VASP default
-        vasp_config.configure_vasp_job(vasp)
-        server_config.configure_server_on_job(vasp)
 
         if self.input.degrees_of_freedom == "volume":
+            ediffg = vasp_config.incar.get("EDIFFG", 10 * vasp_config.incar["EDIFF"])
+            if ediffg < 0:
+                # user tries to set force tolerance which won't work for volume minimization!
+                del vasp_config.incar["EDIFFG"]
             vasp.minimize_volume()
         elif self.input.degrees_of_freedom == "all":
             vasp.minimize_all()
@@ -81,6 +85,8 @@ class MinimizeVaspFlow(ProjectFlow):
                 False
             ), f"DoF cannot be {self.input.degrees_of_freedom}, traitlets broken?"
 
+        server_config.configure_server_on_job(vasp)
+        vasp_config.configure_vasp_job(vasp)
         sflow.input.job = vasp
         if vasp_config.magmoms is not None and len(vasp_config.magmoms) > 0:
 
@@ -182,7 +188,10 @@ def minimize(
     minf = MinimizeVaspFlow(pr, f"{cont.name}{n}")
 
     vasp.incar.setdefault("ISYM", 0)
+    vasp.incar.setdefault("IBRION", 2)
+    vasp.incar.setdefault("POTIM", 0.1)
     vasp.incar.setdefault("EDIFF", 1e-6)
+
     if server.queue is None:
         server.queue = "cmti"
 
@@ -194,6 +203,13 @@ def minimize(
         flow.input.vasp_config = asdict(vasp)
         flow.input.degrees_of_freedom = degrees_of_freedom
         flow.input.server_config = asdict(server)
+        # tricky: I kind of do not want to filter here
+        # if a dict it's a dict of atomic radii, MinimizeVaspInput can only
+        # understand scalars for now, so take twice the smallest radius
+        # if isinstance(min_dist, dict):
+        #     flow.input.min_dist = 2 * min(min_dist.values())
+        # else:
+        #     flow.input.min_dist = min_dist
         flow.run(delete_existing_job=workflow.delete_existing_job)
         raise RunAgain("Just starting!")
 

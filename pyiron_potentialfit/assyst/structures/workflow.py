@@ -82,11 +82,13 @@ class TrainingDataConfig:
     def get_distance_filter(self):
         match self.min_dist:
             case float():
-                return DistanceFilter({el: self.min_dist/2 for el in self.elements})
+                return DistanceFilter({el: self.min_dist / 2 for el in self.elements})
             case dict():
                 return DistanceFilter(self.min_dist)
             case _:
-                assert False, f"min_dist cannot by of type {type(self.min_dist)}: {self.min_dist}!"
+                assert (
+                    False
+                ), f"min_dist cannot by of type {type(self.min_dist)}: {self.min_dist}!"
 
 
 def create_structure_set(
