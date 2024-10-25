@@ -45,6 +45,7 @@ class PacemakerJob(GenericJob, PotentialFit):
         self.__version__ = "0.2"
 
         self._train_job_id_list = []
+        self._compress_by_default = True
 
         self.input = GenericParameters(table_name="input")
         self._cutoff = 7.0
@@ -502,3 +503,14 @@ class PacemakerJob(GenericJob, PotentialFit):
         plt.xlabel(r"Distance [$\AA$]")
         plt.ylabel(r"Energy [eV]")
         return df
+
+    def compress(self, files_to_compress=None):
+        """
+        Compress the output files of a job object.
+
+        Args:
+            files_to_compress (list): A list of files to compress (optional)
+        """
+        if files_to_compress is None:
+            files_to_compress = [f for f in self.files.list() if not f.endswith('.yace')]
+        super(PacemakerJob, self).compress(files_to_compress=files_to_compress)
