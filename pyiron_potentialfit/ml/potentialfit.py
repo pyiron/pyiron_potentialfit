@@ -63,6 +63,60 @@ class PotentialFit(abc.ABC):
         return self._get_training_data()
 
     @abc.abstractmethod
+    def _add_testing_data(self, container: TrainingContainer) -> None:
+        pass
+
+    def add_testing_data(self, container: TrainingContainer) -> None:
+        """
+        Add testing data to the fit.
+
+        Calling this multiple times appends data to internal storage.
+
+        Args:
+            container (:class:`.TrainingContainer`): container holding data to fit
+        """
+        if self.status.initialized:
+            self._add_testing_data(container)
+        else:
+            raise ValueError("Data can only be added before fitting is started!")
+
+    @abc.abstractmethod
+    def _get_testing_data(self) -> TrainingStorage:
+        pass
+
+    @property
+    def testing_data(self) -> TrainingStorage:
+        """
+        Return all testing data added so far.
+
+        Returns:
+            :class:`pyiron_potentialfit.atomistics.atomistics.job.trainingcontainer.TrainingStorage`: container holding all testing data
+        """
+        return self._get_testing_data()
+
+    @abc.abstractmethod
+    def _get_testing_predicted_data(self) -> FlattenedStorage:
+        pass
+
+    @property
+    def testing_predicted_data(self) -> FlattenedStorage:
+        """
+        Predicted properties of the testing data after the fit.
+
+        In contrast to :property:`~.testing_data` this may not contain the original atomic structures, but must be in
+        the same order.  Certain properties in the testing data may be omitted from this data set, if the inconvenient
+        or impossible to predict.  This should be documented on the subclass for each specific code.
+
+        Returns:
+            :class:`pyiron_base.FlattenedStorage`: container holding all predictions of the fitted potential on the
+                                                   testing data
+        """
+        if self.status.finished:
+            return self._get_testing_predicted_data()
+        else:
+            raise ValueError("Data can only be accessed after successful fit!")
+        
+    @abc.abstractmethod
     def _get_predicted_data(self) -> FlattenedStorage:
         pass
 
