@@ -267,7 +267,6 @@ class PacemakerJob(GenericJob, PotentialFit):
         if self._test_job_id_list and self.testing_structure_data is None:
             test_df = self.create_training_dataframe(self._test_job_id_list)
             self.testing_structure_data = test_df
-            self.testing_structure_data.index += len(train_df)
 
         # Save testing data file if testing_structure_data is a DataFrame
         if isinstance(self.testing_structure_data, pd.DataFrame):
