@@ -12,6 +12,7 @@ import os
 import pandas as pd
 import seaborn as sns
 import ruamel.yaml as yaml
+import re
 
 from shutil import copyfile
 
@@ -312,6 +313,47 @@ class PacemakerJob(GenericJob, PotentialFit):
         res_dict = metrics_df.to_dict(orient="list")
         return res_dict
 
+    def _calculate_loss_time(self , df, message_filter, reference_time):
+        df_filtered = df[message_filter]
+        df_filtered.reset_index(drop=True, inplace=True)
+        df_filtered['time'] = (df_filtered['Timestamp'] - reference_time).dt.total_seconds().astype(int)
+        return df_filtered['time'].tolist()
+    
+    def _parse_time(self, logfile = "log.txt"):
+       # Read and parse the log file
+        log_file_path = os.path.join(self.working_directory, logfile)
+        with open(log_file_path, 'r') as file:
+            log_file = file.read()
+
+        # Regex pattern for log entries
+        log_pattern = r'(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3})(?: (?P<level>[IWD]) -)? (?P<message>(?:.*?\n)+?(?=\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}|\Z))'
+        parsed_logs = re.findall(log_pattern, log_file, re.DOTALL)
+        
+        # Convert logs to DataFrame
+        df = pd.DataFrame(parsed_logs, columns=["Timestamp", "Level", "Message"])
+        df['Timestamp'] = pd.to_datetime(df['Timestamp'], format='%Y-%m-%d %H:%M:%S,%f')
+
+        # Calculate training loss times
+        training_filter = df['Message'].str.contains(r'Loss: \d') & ~df['Message'].str.contains('TEST') | df['Message'].str.contains('FIT STATS')
+        training_loss_time = self._calculate_loss_time(df, training_filter, df.loc[training_filter, 'Timestamp'].iloc[0])
+
+        # Calculate testing loss times
+        if self.project_hdf5['output/log_test/loss']:
+            testing_filter = (
+                (df['Message'].str.contains(r'Loss: \d') & df['Message'].str.contains('TEST')) |
+                (~df['Message'].str.contains('INIT') & df['Message'].str.contains('TEST STATS')) |
+                df['Message'].str.contains('TEST Cycle last')
+            )
+            testing_loss_time = self._calculate_loss_time(df, testing_filter, df.loc[testing_filter, 'Timestamp'].iloc[0])
+        else:
+            testing_loss_time = []
+
+        # Calculate intermediate fitting times for ladder scheme
+        intermediate_filter = df['Message'].str.startswith("Intermediate potential saved in interim_potential_lad")
+        ladder_steps_time = self._calculate_loss_time(df,intermediate_filter, df.loc[training_filter, 'Timestamp'].iloc[0])
+
+        return training_loss_time, testing_loss_time, ladder_steps_time
+
     def _convert_interim_ladder_potentials(self):
         from pyace import ACEBBasisSet
 
@@ -361,7 +403,6 @@ class PacemakerJob(GenericJob, PotentialFit):
         with self.project_hdf5.open("output/log_test") as h5out:
             for key, arr in log_res_dict.items():
                 h5out[key] = arr
-
         # If ladder scheme, parse the ladder_metrics txt files
         try:
             log_res_dict = self._analyse_log(logfile='ladder_metrics.txt')
@@ -375,8 +416,14 @@ class PacemakerJob(GenericJob, PotentialFit):
                     h5out[key] = arr
         except:
             logging.info("Single-shot scheme was used, no ladder data parsed")
-            
         
+        # parse the time from the log.txt file
+        training_loss_time, testing_loss_time, ladder_steps_time = self._parse_time()
+        self.project_hdf5['output/log/loss_time'] = training_loss_time
+        self.project_hdf5['output/log_test/loss_time'] = testing_loss_time
+        if 'ladder' in self.project_hdf5['output'].keys():
+            self.project_hdf5['output/ladder/ladder_time'] = ladder_steps_time
+
         # training data
         training_data_fname = os.path.join(
             self.working_directory, "fitting_data_info.pckl.gzip"
@@ -617,3 +664,4 @@ class PacemakerJob(GenericJob, PotentialFit):
         if files_to_compress is None:
             files_to_compress = [f for f in self.files.list() if not f.endswith('.yace')]
         super().compress(files_to_compress=files_to_compress)
+
