@@ -133,10 +133,9 @@ class MinimizeVaspFlow(ProjectFlow):
                     > 0
                 ):
                     continue
-                if self.input.number_of_structures == 1:
-                    name = j.name
-                else:
-                    name = f"{j.name}_step_{i}"
+                name = j.content['user/structure']
+                if self.input.number_of_structures > 1:
+                    name = f"{name}_step_{i}"
                 self.output.trace_structures.include_job(
                     j, iteration_step=-i, identifier=name
                 )
