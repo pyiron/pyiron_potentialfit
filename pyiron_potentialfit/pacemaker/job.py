@@ -316,6 +316,8 @@ class PacemakerJob(GenericJob, PotentialFit):
     def _calculate_loss_time(self , df, message_filter, reference_time):
         df_filtered = df[message_filter]
         df_filtered.reset_index(drop=True, inplace=True)
+        # Checking for duplicated iterations is important for testing dataset
+        df_filtered = df_filtered[df_filtered['iteration'] != df_filtered['iteration'].shift()] 
         df_filtered['time'] = (df_filtered['Timestamp'] - reference_time).dt.total_seconds().astype(int)
         return df_filtered['time'].tolist()
     
@@ -332,7 +334,8 @@ class PacemakerJob(GenericJob, PotentialFit):
         # Convert logs to DataFrame
         df = pd.DataFrame(parsed_logs, columns=["Timestamp", "Level", "Message"])
         df['Timestamp'] = pd.to_datetime(df['Timestamp'], format='%Y-%m-%d %H:%M:%S,%f')
-
+        df['iteration'] = df['Message'].str.extract(r'\nIteration:\s+#(\d+)') 
+        
         # Calculate training loss times
         training_filter = df['Message'].str.contains(r'Loss: \d') & ~df['Message'].str.contains('TEST') | df['Message'].str.contains('FIT STATS')
         training_loss_time = self._calculate_loss_time(df, training_filter, df.loc[training_filter, 'Timestamp'].iloc[0])
@@ -340,11 +343,10 @@ class PacemakerJob(GenericJob, PotentialFit):
         # Calculate testing loss times
         if self.project_hdf5['output/log_test/loss']:
             testing_filter = (
-                (df['Message'].str.contains(r'Loss: \d') & df['Message'].str.contains('TEST')) |
-                (~df['Message'].str.contains('INIT') & df['Message'].str.contains('TEST STATS')) |
-                df['Message'].str.contains('TEST Cycle last')
+                df['Message'].str.contains(r'TEST STATS|TEST Cycle last')
             )
-            testing_loss_time = self._calculate_loss_time(df, testing_filter, df.loc[testing_filter, 'Timestamp'].iloc[0])
+            # Problem caused here when dataframe is empty
+            testing_loss_time = self._calculate_loss_time(df, testing_filter, df.loc[testing_filter, 'Timestamp'].iloc[0]) 
         else:
             testing_loss_time = []
 
