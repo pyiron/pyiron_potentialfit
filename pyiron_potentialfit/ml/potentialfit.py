@@ -61,6 +61,16 @@ class PotentialFit(abc.ABC):
             :class:`pyiron_potentialfit.atomistics.atomistics.job.trainingcontainer.TrainingStorage`: container holding all training data
         """
         return self._get_training_data()
+    
+    @property
+    def testing_data(self) -> TrainingStorage:
+        """
+        Return all testing data added so far.
+
+        Returns:
+            :class:`pyiron_potentialfit.atomistics.atomistics.job.trainingcontainer.TrainingStorage`: container holding all testing data
+        """
+        return self._get_testing_data()
 
     @abc.abstractmethod
     def _add_testing_data(self, container: TrainingContainer) -> None:
