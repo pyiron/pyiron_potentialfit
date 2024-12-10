@@ -240,28 +240,39 @@ class Mlip(GenericJob, PotentialFit):
         )
         self._command_line.write_file(file_name="mlip.sh", cwd=self.working_directory)
 
-        species = np.array(species)
-        input_store = StructureStorage()
-        input_store.add_array("energy", dtype=np.float64, shape=(), per="chunk")
-        input_store.add_array("forces", dtype=np.float64, shape=(3,), per="element")
-        input_store.add_array("stress", dtype=np.float64, shape=(6,), per="chunk")
-        for cfg in loadcfgs(os.path.join(self.working_directory, "training.cfg")):
+        train_store = self._read_cfg("training.cfg")
+        test_store = self._read_cfg("testing.cfg")
+
+        with self.project_hdf5.open("input") as hdf5_input:
+            train_store.to_hdf(hdf=hdf5_input, group_name="training_data")
+            test_store.to_hdf(hdf=hdf5_input, group_name="testing_data")
+
+    def _read_cfg(self, filename):
+        """Read written test/train data into storage.
+
+        Because of the convoluted way testing data is written, just read it
+        back in afterwards in one go rather than to mess around with it a lot.
+        """
+        species = np.array(self.input["species"])
+        store = StructureStorage()
+        store.add_array("energy", dtype=np.float64, shape=(), per="chunk")
+        store.add_array("forces", dtype=np.float64, shape=(3,), per="element")
+        store.add_array("stress", dtype=np.float64, shape=(6,), per="chunk")
+        for cfg in loadcfgs(os.path.join(self.working_directory, filename)):
             struct = Atoms(
                 symbols=species[np.cast[np.int64](cfg.types)],
                 positions=cfg.pos,
                 cell=cfg.lat,
                 pbc=[True] * 3,
             )  # HACK for pbc
-            input_store.add_structure(
+            store.add_structure(
                 struct,
                 identifier=cfg.desc,
                 energy=cfg.energy,
                 forces=cfg.forces,
                 stress=cfg.stresses,
             )
-
-        with self.project_hdf5.open("input") as hdf5_input:
-            input_store.to_hdf(hdf=hdf5_input, group_name="training_data")
+        return store
 
     def collect_logfiles(self):
         pass
@@ -674,8 +685,27 @@ class Mlip(GenericJob, PotentialFit):
         # TODO/BUG: only works after input is written for now, instead this should go over _job_
         return self["input/training_data"].to_object()
 
+    def _add_testing_data(self, container):
+        num = container.number_of_structures
+        # trick the rest of the job into not including this data in training by
+        # passing an empty range as step
+        self.add_job_to_fitting(container.id, num + 1, num, 1)
+
+    def _get_testing_data(self):
+        # TODO/BUG: only works after input is written for now, instead this should go over _job_
+        # backwards compat: previously testing data was not supported as input and only written to a file not saved in
+        # HDF
+        if "testing_data" not in self["input"].list_groups():
+            testing = self._read_cfg("testing.cfg")
+            testing.to_hdf(hdf=self.project_hdf5["input"], group_name="testing_data")
+            return testing
+        return self["input/testing_data"].to_object()
+
     def _get_predicted_data(self):
         return self["output/training_efs"].to_object()
+
+    def _get_testing_predicted_data(self):
+        return self["output/testing_efs"].to_object()
 
     def get_lammps_potential(self):
         return self.potential_dataframe()
