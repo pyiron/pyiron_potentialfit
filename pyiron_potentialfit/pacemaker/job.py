@@ -4,7 +4,7 @@
 ## Executable required: $pyiron/resources/pacemaker/bin/run_pacemaker_tf_cpu.sh AND  run_pacemaker_tf.sh
 
 import logging
-from typing import List, Iterable
+from typing import List, Iterable, Literal
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,6 +13,7 @@ import pandas as pd
 import seaborn as sns
 import ruamel.yaml as yaml
 import re
+import scipy.optimize as so
 
 from shutil import copyfile
 
@@ -695,3 +696,186 @@ class PacemakerJob(GenericJob, PotentialFit):
                 f for f in self.files.list() if not f.endswith(".yace")
             ]
         super().compress(files_to_compress=files_to_compress)
+
+    def fix_inner(
+            self,
+            potential: str = 'output_potential.yaml',
+            overwrite: bool = False,
+            optimize_repulsion: bool = True,
+            inner_cutoff_type: Literal['zbl', 'distance'] = None,
+            delta_in: float = 0.1,
+            plot: bool = True,
+            log: bool = True,
+    ):
+        """
+        Try to optimize the inner cutoff functions for repulsion.
+
+        Original observation: with the core-repulsion: auto setting pacemaker simply activates the 
+        inner cutoff where data stops.  For ZBL this often leads to non monotonous behavior in the
+        region where the switching between the learning radial basis and ZBL happens.  Especially
+        when delta_in is small large forces can be observed in this region.  This causes problems 
+        for relaxations from difficult starting points (interstitials, gamma surfaces), but also 
+        with stability during MD.
+
+        Using energies and forces predicted for a dimer, try to make the onset of the core-repulsion as smooth as possible.
+        The inner cutoff radius is moved to the inflection point of the dimer curve of bare ACE potential.
+        If the potential intrinsically reproduces the repulsion well already, this can fail.
+
+        A corresponding .yace file is automatically generated.
+        Parameters `inner_cutoff_type` and `delta_in` are exactly as documented in pacemaker.
+
+        .. warning::
+            Use at your own risk!  Double check dimer and energy volume curves.
+            This may be a quick fix for you potential if you have not included enough close distance data, but it also may not!
+
+        Args:
+            potential (str): path or name of potential to fix, must be in .yaml format
+            overwrite (bool): if True, overwrite given potential, otherwise add postfix '_inner' to `potential`
+            optimize_repulsion (bool): PACE offers some parameters to tune the core repulsion; use them to make the transition region as smooth as possible;
+                for 'zbl' just match the absolute value at the inner cutoff;
+                for 'distance' try to match both absolute value and gradient at the inner cutoff, this can be unstable;
+                for 'density' this code is not tested and will likely fail
+            inner_cutoff_type (str): which core repulsion to use, if None use whichever was specified at fit time.
+            delta_in (float): range over which the core repulsion is turned on
+            plot (bool): plot old and fixed dimer curves
+            log (bool): print updated core-repulstion parameters
+        """
+        import pyace
+
+        self.decompress()
+        if potential in self.files.list():
+            potential = self.files[potential]
+        potfile = str(potential)
+
+        ace = pyace.PyACECalculator(potfile)
+        bbs = ace.basis.to_BBasisConfiguration()
+
+        def ace_dimer(ace, elems, rr):
+            if isinstance(rr, Iterable):
+                return np.array(list(zip(*[ace_dimer(ace, elems, ri) for ri in rr])))
+            s = self.project.create.structure.atoms(
+                    elems,
+                    positions=[[0]*3, [rr, 0, 0]],
+                    cell=[50]*3
+            )
+            s.calc = ace
+            return s.get_potential_energy(), s.get_forces()[1,0]
+
+        def ace_dimer_e(ace, elems, rr):
+            if isinstance(rr, Iterable):
+                return np.array([ace_dimer_e(ace, elems, ri) for ri in rr])
+            return ace_dimer(ace, elems, rr)[0]
+
+        def ace_dimer_f(ace, elems, rr):
+            if isinstance(rr, Iterable):
+                return np.array([ace_dimer_f(ace, elems, ri) for ri in rr])
+            return ace_dimer(ace, elems, rr)[1]
+
+        def find_stitching_point(ace, elems, r0):
+            # current cutoff in attractive region still!
+            if ace_dimer_f(ace, elems, r0) < 0:
+                # find minimum of potential then move a bit to the left
+                r0 = so.fmin(lambda r: ace_dimer_e(ace, elems, r), x0=r0, disp=False)[0]
+                r0 -= 0.1
+            return so.fmin(lambda r: -(ace_dimer_f(ace, elems, r)) if r > 0 else np.inf, x0=r0, disp=False, )[0]
+
+        def get_elems(block):
+            elems = block.block_name.split()
+            if len(elems)==1:
+                elems *= 2
+            return elems
+
+        # any modification we do to the El1-El2 block must be made for El2-El1
+        # block as well to keep radial basis consistent
+        def set_block_values(elems, **kwargs):
+            for block in bbs.funcspecs_blocks:
+                if set(get_elems(block)) != set(elems): continue
+                for k, v in kwargs.items():
+                    setattr(block, k, v)
+
+        # valid BBasis requires to set the cutoff_type for all blocks at the same
+        # time
+        for i, block in enumerate(bbs.funcspecs_blocks):
+            elems = get_elems(block)
+            if len(elems) == 2 and inner_cutoff_type is not None:
+                set_block_values(elems, inner_cutoff_type=inner_cutoff_type)
+
+        visited = set()
+        for block in bbs.funcspecs_blocks:
+            elems = get_elems(block)
+            if len(elems) > 2: continue
+            if tuple(sorted(elems)) in visited: continue
+            visited.add(tuple(sorted(elems)))
+
+            # save old inner cutoff and set to zero to have access to unadultered
+            # potential below
+            r_in = block.r_in
+            set_block_values(elems, r_in=0.0)
+
+            ace0 = pyace.PyACECalculator(bbs)
+            rr = find_stitching_point(ace0, elems, r_in)
+
+            if plot:
+                plt.figure()
+                plt.title(elems)
+
+            if optimize_repulsion:
+                # energies and forces we are trying to match
+                r_range = np.linspace(rr - delta_in/2, rr + delta_in/2)
+                e0, f0 = ace_dimer(ace0, elems, r_range)
+
+                def step(crp):
+                    if len(crp) == 2:
+                        k, l = crp
+                    else:
+                        k, l = crp, 1
+                    set_block_values(elems, core_rep_parameters = [np.exp(k), l], r_in=rr, delta_in=delta_in)
+                    acei = pyace.PyACECalculator(bbs)
+                    e, f = ace_dimer(acei, elems, r_range)
+                    return abs(e - e0).mean()
+                if block.inner_cutoff_type == "zbl":
+                    # make sure repulsion function is active way before the region were are searching in
+                    set_block_values(elems, r_in=rr + 2 + block.delta_in)
+                    set_block_values(elems, core_rep_parameters = [1, 1])
+                    ei = ace_dimer_e(pyace.PyACECalculator(bbs), elems, rr)
+                    e0 = ace_dimer_e(ace0, elems, rr)
+                    scale = (e0/ei).mean()
+                    set_block_values(elems, core_rep_parameters = [scale, 1], r_in = rr, delta_in = delta_in)
+                    if plot:
+                        plt.scatter(rr, e0, marker='o', label='stitching point', zorder=10)
+                else:
+                    ret = so.minimize(step, x0=[1,1], bounds=((-np.inf, np.inf), (0,np.inf)))
+                    set_block_values(elems, core_rep_parameters = [np.exp(ret.x[0]), ret.x[1]], r_in = rr, delta_in = delta_in)
+                    if plot:
+                        plt.scatter(r_range, e0, marker='v', label='stitching points')
+                if log:
+                    print(elems, rr, block.core_rep_parameters)
+            else:
+                set_block_values(elems, r_in=rr, delta_in=delta_in, core_rep_parameters=[1,1])
+                e0, f0 = ace_dimer(ace0, elems, rr)
+                if plot:
+                    plt.scatter(rr, e0, marker='v', label='stitching point')
+
+            r = np.linspace(np.clip(.9*(rr - delta_in), .1, None), rr * 1.2, 100)
+            acef = pyace.PyACECalculator(bbs)
+            if plot:
+                plt.plot(r, ace_dimer_e(ace, elems, r), '-', label='original repulsion')
+                plt.plot(r, ace_dimer_e(ace0, elems, r), '--', label='no repulsion')
+                plt.plot(r, ace_dimer_e(acef, elems, r), '-', label='updated repulsion')
+                plt.legend()
+
+        if overwrite:
+            copyfile(potfile, f'{potfile}.backup')
+            bbs.save(potfile)
+            # convert to yace format
+            pyace.ACEBBasisSet(bbs).to_ACECTildeBasisSet().save_yaml(
+                os.path.splitext(potfile)[0] + ".yace"
+            )
+        else:
+            ofile = os.path.splitext(potfile)[0] + '_inner.yaml'
+            bbs.save(ofile)
+            # convert to yace format
+            pyace.ACEBBasisSet(bbs).to_ACECTildeBasisSet().save_yaml(
+                os.path.splitext(ofile)[0] + ".yace"
+            )
+        self.compress()
