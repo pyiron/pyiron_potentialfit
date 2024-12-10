@@ -258,7 +258,7 @@ class ProjectFlow(HasHDF, abc.ABC):
             return False
         if status.get("running", 0) > 0:
             return False
-        return status.get("finished", 0) / total > threshold
+        return status.get("finished", 0) / total >= threshold
 
     def considered_broken(self, threshold=0.05):
         status = self.project.get_jobs_status().to_dict()
@@ -281,7 +281,7 @@ class ProjectFlow(HasHDF, abc.ABC):
         self,
         config: WorkflowProjectConfig,
         if_new=lambda: None,
-        if_finished=lambda: None,
+        if_finished=None,
         number_of_jobs: Optional[int] = None,
     ):
         """
@@ -321,7 +321,10 @@ class ProjectFlow(HasHDF, abc.ABC):
 
         if self.considered_finished(threshold=config.finished_threshold):
             logger.info("finished")
-            return if_finished(self)
+            if if_finished is not None:
+                return if_finished(self)
+            else:
+                self.analyze(delete_existing_job=config.delete_existing_job)
 
         # BUG: if we are neither broken nor finished and have no running jobs
         # we run into a deadlock here.
