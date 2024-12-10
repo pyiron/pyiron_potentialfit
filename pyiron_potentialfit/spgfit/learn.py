@@ -291,12 +291,9 @@ def fit_ace(
     else:
         training_containers = tuple(training_containers)
     train_name = "_".join(train.name for train in training_containers)
-    train_number_of_structures = sum(
-        train.number_of_structures for train in training_containers
-    )
     pr = fit_pr.create_group(train_name)
 
-    name = [f"ACE{int(number_of_functions_per_element):03}", round(rmax, 2)]
+    name = [f"ACE{int(number_of_functions_per_element):04}", round(rmax, 2)]
     if rmin is not None:
         name.insert(1, round(rmin, 2))
     if isinstance(embedding, str):
