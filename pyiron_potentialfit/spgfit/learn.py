@@ -266,7 +266,7 @@ def _guess_runtime_ace(queue, number_of_atoms, rmax, number_of_functions_per_ele
 
 
 @broadcast(
-    "rmax", "number_of_functions_per_element", "embedding", "ladder", "weighting"
+    "rmax", "number_of_functions_per_element", "iterations", "embedding", "ladder", "weighting"
 )
 def fit_ace(
     fit_pr: Project,
@@ -274,7 +274,7 @@ def fit_ace(
     rmax: Union[float, Iterable[float]],
     number_of_functions_per_element: Union[int, Iterable[int]],
     rmin: float | None = None,
-    iterations: int = None,
+    iterations: int | Iterable[int] = None,
     embedding: Iterable[Literal["linear", "sqrt"] | tuple[float]] = "sqrt",
     ladder: bool | tuple[int, float] = False,
     kappa=0.5,
