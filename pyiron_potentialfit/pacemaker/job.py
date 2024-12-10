@@ -4,7 +4,7 @@
 ## Executable required: $pyiron/resources/pacemaker/bin/run_pacemaker_tf_cpu.sh AND  run_pacemaker_tf.sh
 
 import logging
-from typing import List
+from typing import List, Iterable
 
 import matplotlib.pyplot as plt
 import numpy as np
