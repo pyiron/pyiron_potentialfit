@@ -546,6 +546,16 @@ class TrainingStorage(StructureStorage):
         except (KeyError, IndexError):
             pass
 
+        if "forces" in kwargs and not self.has_array("forces"):
+            self.add_array(
+                "forces", shape=(3,), dtype=np.float64, per="element", fill=np.nan
+            )
+        if "stress" in kwargs and not self.has_array("stress"):
+            # save stress in voigt notation
+            self.add_array(
+                "stress", shape=(6,), dtype=np.float64, per="chunk", fill=np.nan
+            )
+
         self.add_chunk(
             len(indices),
             identifier=identifier or job.name,
