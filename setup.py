@@ -35,7 +35,7 @@ setup(
         'numpy==1.26.4',
         'pyiron_base==0.10.9',
         'pyiron_atomistics==0.6.18',
-        'scipy==1.14.0',
+        'scipy==1.15.2',
         'runnerase==0.3.3',
         'pyiron_snippets>=0.1.1,<=0.1.4',
         'pyparsing>=3.1.2,<3.2',
