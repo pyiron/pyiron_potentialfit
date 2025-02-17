@@ -19,7 +19,7 @@ dependencies:
 - pyiron_contrib =0.1.18
 - pyiron_snippets >=0.1.1,<=0.1.4
 - pyparsing =3.1.2
-- scipy =1.14.0
+- scipy =1.15.2
 - dill >=0.3
 - seaborn >=0.13.0,<0.14
 - runnerase =0.3.3
