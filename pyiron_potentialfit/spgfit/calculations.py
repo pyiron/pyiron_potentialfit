@@ -171,7 +171,7 @@ def main():
     pr.data.write()
     structures_pr = Project(args.structures_project)
 
-    logger = logging.getLogger("calculations")
+    logger = logging.getLogger("assyst.calculations")
 
     done = True
     for cname in args.containers:

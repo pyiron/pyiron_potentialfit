@@ -54,7 +54,7 @@ def _pyxtal(
     Raises:
         ValueError: if stoichiometry and symmetry group are incompatible and allow_exceptions==False or only one structure is requested
     """
-    logger = getLogger("structures")
+    logger = getLogger("assyst.structures")
 
     def generate(group):
         s = pyxtal()
@@ -141,7 +141,7 @@ def spg(
     min_dist=None,
     delete_existing_job=False,
 ):
-    logger = getLogger("structures")
+    logger = getLogger("assyst.structures")
     logger.info("Creating new structures for %s <= %i", elements, max_atoms)
     store = pr.create.job.StructureContainer(
         name, delete_existing_job=delete_existing_job

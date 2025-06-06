@@ -283,6 +283,7 @@ class ProjectFlow(HasHDF, abc.ABC):
         if_new=lambda: None,
         if_finished=None,
         number_of_jobs: Optional[int] = None,
+        logger = None,
     ):
         """
         Check if this workflow has run before, has broken jobs or has finished.
@@ -290,8 +291,9 @@ class ProjectFlow(HasHDF, abc.ABC):
         `if_new` and `if_finished` are called appriopriately.  If any broken jobs are detected, they are
         tried to be repaired with HandyMan.
         """
-        logger = getLogger()
-        logger.setLevel(INFO)
+        if logger is None:
+            logger = getLogger()
+            logger.setLevel(INFO)
 
         self.project.refresh_job_status()
         if self.considered_empty() or config.delete_existing_job:

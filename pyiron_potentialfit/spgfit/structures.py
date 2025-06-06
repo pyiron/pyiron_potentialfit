@@ -5,7 +5,7 @@ from pprint import pprint
 from logging import getLogger, INFO
 
 getLogger().setLevel(INFO)
-logger = getLogger("structures")
+logger = getLogger("assyst.structures")
 
 from pyiron_base import Project
 from pyiron_atomistics.atomistics.structure.has_structure import HasStructure

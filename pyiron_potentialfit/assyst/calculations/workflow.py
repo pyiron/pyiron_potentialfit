@@ -111,7 +111,7 @@ def run_container(pr: Project, cont: "StructureContainer", config: CalculationCo
         cont (StructureContainer): structures that should be run
         config (:class:`.CalculationConfig`): parameters for the DFT calculations
     """
-    logger = logging.getLogger("calculations")
+    logger = logging.getLogger("assyst.calculations")
     logger.info("running DFT on %s in project %s", cont.name, pr.path)
 
     train = TrainingDataFlow(pr, cont.name)
@@ -176,6 +176,7 @@ def run_container(pr: Project, cont: "StructureContainer", config: CalculationCo
             if_new,
             if_finished,
             number_of_jobs=train.input.structures.number_of_structures,
+            logger=logger,
         )
 
 

@@ -179,7 +179,7 @@ def minimize(
     server: ServerConfig,
     workflow: WorkflowProjectConfig,
 ):
-    logger = getLogger("structures")
+    logger = getLogger("assyst.structures")
     logger.info("Minimizing structures: %s -> %s", cont.name, degrees_of_freedom)
     n = {"volume": "VolMin", "all": "AllMin", "cell": "CellMin", "internal": "IntMin"}[
         degrees_of_freedom
@@ -240,5 +240,6 @@ def minimize(
         return cont
 
     return minf.check(
-        workflow, if_new, if_finished, number_of_jobs=cont.number_of_structures
+        workflow, if_new, if_finished, number_of_jobs=cont.number_of_structures,
+        logger=logger
     )

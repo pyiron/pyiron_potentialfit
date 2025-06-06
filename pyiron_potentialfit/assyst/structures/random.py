@@ -91,7 +91,7 @@ def rattle(
     filterf,
     delete_existing_job=False,
 ):
-    logger = getLogger("structures")
+    logger = getLogger("assyst.structures")
     logger.info("Creating rattle/stretch structures")
 
     rand = pr.create.job.StructureContainer(

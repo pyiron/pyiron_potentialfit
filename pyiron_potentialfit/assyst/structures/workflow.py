@@ -110,7 +110,7 @@ def create_structure_set(
         this function again after some time until it is.
     """
     state = State(state)
-    logger = getLogger("structures")
+    logger = getLogger("assyst.structures")
     buf = StringIO("")
     pprint(asdict(conf), stream=buf)
     logger.info("config: %s", buf.getvalue())
