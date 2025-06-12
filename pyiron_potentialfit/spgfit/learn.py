@@ -266,7 +266,12 @@ def _guess_runtime_ace(queue, number_of_atoms, rmax, number_of_functions_per_ele
 
 
 @broadcast(
-    "rmax", "number_of_functions_per_element", "iterations", "embedding", "ladder", "weighting"
+    "rmax",
+    "number_of_functions_per_element",
+    "iterations",
+    "embedding",
+    "ladder",
+    "weighting",
 )
 def fit_ace(
     fit_pr: Project,

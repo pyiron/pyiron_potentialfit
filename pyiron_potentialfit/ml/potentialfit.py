@@ -61,7 +61,7 @@ class PotentialFit(abc.ABC):
             :class:`pyiron_potentialfit.atomistics.atomistics.job.trainingcontainer.TrainingStorage`: container holding all training data
         """
         return self._get_training_data()
-    
+
     @property
     def testing_data(self) -> TrainingStorage:
         """
@@ -125,7 +125,7 @@ class PotentialFit(abc.ABC):
             return self._get_testing_predicted_data()
         else:
             raise ValueError("Data can only be accessed after successful fit!")
-        
+
     @abc.abstractmethod
     def _get_predicted_data(self) -> FlattenedStorage:
         pass
