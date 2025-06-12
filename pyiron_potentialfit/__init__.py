@@ -6,7 +6,7 @@ from pyiron_atomistics import Project
 
 
 from pyiron_base import JOB_CLASS_DICT
-from pyiron_base.project.maintenance import add_module_conversion
+from pyiron_base import add_module_conversion
 
 
 # Make classes available for new pyiron version

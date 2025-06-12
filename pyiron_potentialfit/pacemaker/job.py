@@ -181,8 +181,8 @@ class PacemakerJob(GenericJob, PotentialFit):
                 },
             ]
         }
-    
-    def _save_structure_dataframe_pckl_gzip(self, df, dataset_type:str = 'training'):
+
+    def _save_structure_dataframe_pckl_gzip(self, df, dataset_type: str = "training"):
         if "NUMBER_OF_ATOMS" not in df.columns and "number_of_atoms" in df.columns:
             df.rename(columns={"number_of_atoms": "NUMBER_OF_ATOMS"}, inplace=True)
         df["NUMBER_OF_ATOMS"] = df["NUMBER_OF_ATOMS"].astype(int)
@@ -214,7 +214,9 @@ class PacemakerJob(GenericJob, PotentialFit):
             df["pbc"] = df["ase_atoms"].map(lambda atoms: np.all(atoms.pbc))
 
         # Use dataset_type to differentiate the filename
-        data_file_name = os.path.join(self.working_directory, f"df_{dataset_type}.pckl.gzip")
+        data_file_name = os.path.join(
+            self.working_directory, f"df_{dataset_type}.pckl.gzip"
+        )
         logging.info(
             f"Saving {dataset_type} structures dataframe into {data_file_name} with pickle protocol = 4, compression = gzip"
         )
@@ -230,10 +232,10 @@ class PacemakerJob(GenericJob, PotentialFit):
         if isinstance(self.structure_data, pd.DataFrame):
             logging.info("structure_data is pandas.DataFrame")
             data_file_name = self._save_structure_dataframe_pckl_gzip(
-                df = self.structure_data
+                df=self.structure_data
             )
-            self.input["data"]['filename'] = data_file_name
-            
+            self.input["data"]["filename"] = data_file_name
+
             # Automatically determine the list of elements
             elements_set = set()
             for at in self.structure_data["ase_atoms"]:
@@ -245,7 +247,7 @@ class PacemakerJob(GenericJob, PotentialFit):
         elif isinstance(self.structure_data, str):  # filename
             if os.path.isfile(self.structure_data):
                 logging.info("structure_data is valid file path")
-                self.input["data"]['filename'] = self.structure_data
+                self.input["data"]["filename"] = self.structure_data
             else:
                 raise ValueError(
                     "Provided structure_data filename ({}) doesn't exists".format(
@@ -257,8 +259,8 @@ class PacemakerJob(GenericJob, PotentialFit):
         ):  # duck-typing check for TrainingContainer
             logging.info("structure_data is TrainingContainer")
             df = self.structure_data.to_pandas()
-            data_file_name = self._save_structure_dataframe_pckl_gzip(df = df)
-            self.input["data"]['filename'] = data_file_name
+            data_file_name = self._save_structure_dataframe_pckl_gzip(df=df)
+            self.input["data"]["filename"] = data_file_name
         elif self.structure_data is None:
             raise ValueError(
                 "`structure_data` is none, but should be pd.DataFrame, TrainingContainer or valid pickle.gzip filename"
@@ -272,7 +274,9 @@ class PacemakerJob(GenericJob, PotentialFit):
         # Save testing data file if testing_structure_data is a DataFrame
         if isinstance(self.testing_structure_data, pd.DataFrame):
             logging.info("testing_structure_data is a pandas DataFrame")
-            test_file_name = self._save_structure_dataframe_pckl_gzip(df = self.testing_structure_data, dataset_type="testing")
+            test_file_name = self._save_structure_dataframe_pckl_gzip(
+                df=self.testing_structure_data, dataset_type="testing"
+            )
             self.input["data"]["test_filename"] = test_file_name
 
         metadata_dict = self.input["metadata"]
@@ -313,46 +317,58 @@ class PacemakerJob(GenericJob, PotentialFit):
         res_dict = metrics_df.to_dict(orient="list")
         return res_dict
 
-    def _calculate_loss_time(self , df, message_filter, reference_time):
+    def _calculate_loss_time(self, df, message_filter, reference_time):
         df_filtered = df[message_filter]
         df_filtered.reset_index(drop=True, inplace=True)
         # Checking for duplicated iterations is important for testing dataset
-        df_filtered = df_filtered[df_filtered['iteration'] != df_filtered['iteration'].shift()] 
-        df_filtered['time'] = (df_filtered['Timestamp'] - reference_time).dt.total_seconds().astype(int)
-        return df_filtered['time'].tolist()
-    
-    def _parse_time(self, logfile = "log.txt"):
-       # Read and parse the log file
+        df_filtered = df_filtered[
+            df_filtered["iteration"] != df_filtered["iteration"].shift()
+        ]
+        df_filtered["time"] = (
+            (df_filtered["Timestamp"] - reference_time).dt.total_seconds().astype(int)
+        )
+        return df_filtered["time"].tolist()
+
+    def _parse_time(self, logfile="log.txt"):
+        # Read and parse the log file
         log_file_path = os.path.join(self.working_directory, logfile)
-        with open(log_file_path, 'r') as file:
+        with open(log_file_path, "r") as file:
             log_file = file.read()
 
         # Regex pattern for log entries
-        log_pattern = r'(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3})(?: (?P<level>[IWD]) -)? (?P<message>(?:.*?\n)+?(?=\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}|\Z))'
+        log_pattern = r"(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3})(?: (?P<level>[IWD]) -)? (?P<message>(?:.*?\n)+?(?=\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}|\Z))"
         parsed_logs = re.findall(log_pattern, log_file, re.DOTALL)
-        
+
         # Convert logs to DataFrame
         df = pd.DataFrame(parsed_logs, columns=["Timestamp", "Level", "Message"])
-        df['Timestamp'] = pd.to_datetime(df['Timestamp'], format='%Y-%m-%d %H:%M:%S,%f')
-        df['iteration'] = df['Message'].str.extract(r'\nIteration:\s+#(\d+)') 
-        
+        df["Timestamp"] = pd.to_datetime(df["Timestamp"], format="%Y-%m-%d %H:%M:%S,%f")
+        df["iteration"] = df["Message"].str.extract(r"\nIteration:\s+#(\d+)")
+
         # Calculate training loss times
-        training_filter = df['Message'].str.contains(r'Loss: \d') & ~df['Message'].str.contains('TEST') | df['Message'].str.contains('FIT STATS')
-        training_loss_time = self._calculate_loss_time(df, training_filter, df.loc[training_filter, 'Timestamp'].iloc[0])
+        training_filter = df["Message"].str.contains(r"Loss: \d") & ~df[
+            "Message"
+        ].str.contains("TEST") | df["Message"].str.contains("FIT STATS")
+        training_loss_time = self._calculate_loss_time(
+            df, training_filter, df.loc[training_filter, "Timestamp"].iloc[0]
+        )
 
         # Calculate testing loss times
-        if self.project_hdf5['output/log_test/loss']:
-            testing_filter = (
-                df['Message'].str.contains(r'TEST STATS|TEST Cycle last')
-            )
+        if self.project_hdf5["output/log_test/loss"]:
+            testing_filter = df["Message"].str.contains(r"TEST STATS|TEST Cycle last")
             # Problem caused here when dataframe is empty
-            testing_loss_time = self._calculate_loss_time(df, testing_filter, df.loc[testing_filter, 'Timestamp'].iloc[0]) 
+            testing_loss_time = self._calculate_loss_time(
+                df, testing_filter, df.loc[testing_filter, "Timestamp"].iloc[0]
+            )
         else:
             testing_loss_time = []
 
         # Calculate intermediate fitting times for ladder scheme
-        intermediate_filter = df['Message'].str.startswith("Intermediate potential saved in interim_potential_lad")
-        ladder_steps_time = self._calculate_loss_time(df,intermediate_filter, df.loc[training_filter, 'Timestamp'].iloc[0])
+        intermediate_filter = df["Message"].str.startswith(
+            "Intermediate potential saved in interim_potential_lad"
+        )
+        ladder_steps_time = self._calculate_loss_time(
+            df, intermediate_filter, df.loc[training_filter, "Timestamp"].iloc[0]
+        )
 
         return training_loss_time, testing_loss_time, ladder_steps_time
 
@@ -360,12 +376,15 @@ class PacemakerJob(GenericJob, PotentialFit):
         from pyace import ACEBBasisSet
 
         for filename in sorted(self.files.list()):
-            if "interim_potential_ladder" in filename and (filename.endswith(".yaml") 
-                                                           or filename.endswith(".yml")):
-                filename_without_yaml = filename.replace(".yaml", "").replace(".yml", "")
+            if "interim_potential_ladder" in filename and (
+                filename.endswith(".yaml") or filename.endswith(".yml")
+            ):
+                filename_without_yaml = filename.replace(".yaml", "").replace(
+                    ".yml", ""
+                )
                 filename_with_yace = filename_without_yaml + ".yace"
                 self._yace_files_list.append(filename_with_yace)
-                
+
                 # Converting Yaml to Yace
                 logging.info(f"{filename}: converting to {filename_with_yace}")
                 bbasis = ACEBBasisSet(self.working_directory + "/" + filename)
@@ -391,7 +410,7 @@ class PacemakerJob(GenericJob, PotentialFit):
             h5out["yaml"] = final_potential_yaml_string
             h5out["yace"] = final_potential_yace_string
             h5out["elements_name"] = elements_name
-        
+
         # Convert all intermediate yaml files into intermediate yace files
         self._convert_interim_ladder_potentials()
 
@@ -401,30 +420,30 @@ class PacemakerJob(GenericJob, PotentialFit):
             for key, arr in log_res_dict.items():
                 h5out[key] = arr
         # Reads test_metric.txt for testing data
-        log_res_dict = self._analyse_log(logfile='test_metrics.txt')
+        log_res_dict = self._analyse_log(logfile="test_metrics.txt")
         with self.project_hdf5.open("output/log_test") as h5out:
             for key, arr in log_res_dict.items():
                 h5out[key] = arr
         # If ladder scheme, parse the ladder_metrics txt files
         try:
-            log_res_dict = self._analyse_log(logfile='ladder_metrics.txt')
+            log_res_dict = self._analyse_log(logfile="ladder_metrics.txt")
             with self.project_hdf5.open("output/ladder") as h5out:
                 for key, arr in log_res_dict.items():
                     h5out[key] = arr
             # For testing data
-            log_res_dict = self._analyse_log(logfile='test_ladder_metrics.txt')
+            log_res_dict = self._analyse_log(logfile="test_ladder_metrics.txt")
             with self.project_hdf5.open("output/test_ladder") as h5out:
                 for key, arr in log_res_dict.items():
                     h5out[key] = arr
         except:
             logging.info("Single-shot scheme was used, no ladder data parsed")
-        
+
         # parse the time from the log.txt file
         training_loss_time, testing_loss_time, ladder_steps_time = self._parse_time()
-        self.project_hdf5['output/log/loss_time'] = training_loss_time
-        self.project_hdf5['output/log_test/loss_time'] = testing_loss_time
-        if 'ladder' in self.project_hdf5['output'].keys():
-            self.project_hdf5['output/ladder/ladder_time'] = ladder_steps_time
+        self.project_hdf5["output/log/loss_time"] = training_loss_time
+        self.project_hdf5["output/log_test/loss_time"] = testing_loss_time
+        if "ladder" in self.project_hdf5["output"].keys():
+            self.project_hdf5["output/ladder/ladder_time"] = ladder_steps_time
 
         # training data
         training_data_fname = os.path.join(
@@ -446,8 +465,10 @@ class PacemakerJob(GenericJob, PotentialFit):
         # Add testing data to the list if available
         if self._test_job_id_list:
             data_list.append(["test_pred.pckl.gzip", "testing"])
-            testing_data_fname = os.path.join(self.working_directory, "test_data_info.pckl.gzip")
-            
+            testing_data_fname = os.path.join(
+                self.working_directory, "test_data_info.pckl.gzip"
+            )
+
             # Load testing data, map atoms, and populate TrainingStorage
             test_df = pd.read_pickle(testing_data_fname, compression="gzip")
             test_df["atoms"] = test_df.ase_atoms.map(ase_to_pyiron)
@@ -465,7 +486,9 @@ class PacemakerJob(GenericJob, PotentialFit):
             predicted_fname = os.path.join(self.working_directory, file_name)
             df = pd.read_pickle(predicted_fname, compression="gzip")
             predicted_data_fs = FlattenedStorage()
-            predicted_data_fs.add_array("energy", dtype=np.float64, shape=(), per="chunk")
+            predicted_data_fs.add_array(
+                "energy", dtype=np.float64, shape=(), per="chunk"
+            )
             predicted_data_fs.add_array(
                 "energy_true", dtype=np.float64, shape=(), per="chunk"
             )
@@ -495,14 +518,18 @@ class PacemakerJob(GenericJob, PotentialFit):
                 )
 
             with self.project_hdf5.open("output") as hdf5_output:
-                if name == 'training':
-                    training_data_ts.to_hdf(hdf=hdf5_output, group_name = "training_data")
-                    predicted_data_fs.to_hdf(hdf=hdf5_output, group_name = "predicted_data")
-                elif name == 'testing':
-                    testing_data_ts.to_hdf(hdf=hdf5_output, group_name = "testing_data")
-                    predicted_data_fs.to_hdf(hdf=hdf5_output, group_name = "testing_predicted_data")
+                if name == "training":
+                    training_data_ts.to_hdf(hdf=hdf5_output, group_name="training_data")
+                    predicted_data_fs.to_hdf(
+                        hdf=hdf5_output, group_name="predicted_data"
+                    )
+                elif name == "testing":
+                    testing_data_ts.to_hdf(hdf=hdf5_output, group_name="testing_data")
+                    predicted_data_fs.to_hdf(
+                        hdf=hdf5_output, group_name="testing_predicted_data"
+                    )
 
-    def get_lammps_potential(self, pot_index:int = None):
+    def get_lammps_potential(self, pot_index: int = None):
         elements_name = self.project_hdf5["output/potential/elements_name"]
         elem = " ".join(elements_name)
         if pot_index is None:
@@ -510,10 +537,12 @@ class PacemakerJob(GenericJob, PotentialFit):
         elif isinstance(pot_index, int):
             filename_with_yace = f"interim_potential_ladder_step_{pot_index}.yace"
             if filename_with_yace in self._yace_files_list:
-                pot_file_name = self.working_directory+"/" + filename_with_yace
+                pot_file_name = self.working_directory + "/" + filename_with_yace
             else:
-                raise ValueError(f"File {filename_with_yace } not found in {self._yace_files_list}")
-            
+                raise ValueError(
+                    f"File {filename_with_yace } not found in {self._yace_files_list}"
+                )
+
         pot_dict = {
             "Config": [
                 [
@@ -525,8 +554,7 @@ class PacemakerJob(GenericJob, PotentialFit):
             "Model": ["ACE"],
             "Name": [self.job_name],
             "Species": [elements_name],
-            }
-
+        }
 
         ace_potential = pd.DataFrame(pot_dict)
 
@@ -537,7 +565,7 @@ class PacemakerJob(GenericJob, PotentialFit):
         with self.project_hdf5.open("input") as h5in:
             self.input.to_hdf(h5in)
         self.project_hdf5["input/training_job_ids"] = self._train_job_id_list
-        self.project_hdf5['input/testing_job_ids'] = self._test_job_id_list
+        self.project_hdf5["input/testing_job_ids"] = self._test_job_id_list
 
     def from_hdf(self, hdf=None, group_name=None):
         super().from_hdf(hdf=hdf, group_name=group_name)
@@ -545,9 +573,8 @@ class PacemakerJob(GenericJob, PotentialFit):
             self.input.from_hdf(h5in)
         if "training_job_ids" in self.project_hdf5["input"].list_nodes():
             self._train_job_id_list = self.project_hdf5["input/training_job_ids"]
-        if "testing_job_ids" in self.project_hdf5['input'].list_nodes():
+        if "testing_job_ids" in self.project_hdf5["input"].list_nodes():
             self._test_job_id_list = self.project_hdf5["input/testing_job_ids"]
-
 
     def get_final_potential_filename(self):
         return os.path.join(self.working_directory, "output_potential.yaml")
@@ -578,7 +605,7 @@ class PacemakerJob(GenericJob, PotentialFit):
 
     def _get_predicted_data(self) -> FlattenedStorage:
         return self.project_hdf5["output/predicted_data"].to_object()
-    
+
     def _add_testing_data(self, container: TrainingContainer) -> None:
         self.add_test_job_to_fitting(container.id)
 
@@ -655,7 +682,7 @@ class PacemakerJob(GenericJob, PotentialFit):
         plt.xlabel(r"Distance [$\AA$]")
         plt.ylabel(r"Energy [eV]")
         return df
-    
+
     def compress(self, files_to_compress=None):
         """
         Compress the output files of a job object.
@@ -664,6 +691,7 @@ class PacemakerJob(GenericJob, PotentialFit):
             files_to_compress (list): A list of files to compress (optional)
         """
         if files_to_compress is None:
-            files_to_compress = [f for f in self.files.list() if not f.endswith('.yace')]
+            files_to_compress = [
+                f for f in self.files.list() if not f.endswith(".yace")
+            ]
         super().compress(files_to_compress=files_to_compress)
-
