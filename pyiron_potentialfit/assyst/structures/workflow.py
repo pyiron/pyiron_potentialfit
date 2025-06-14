@@ -131,6 +131,10 @@ def create_structure_set(
     if state == State.VOLMIN:
         try:
             cont = pr["containers"].load(f"{conf.name}")
+            if cont is None:
+                state = State.SPG
+                logger.error("failed to load previous structure container, backtracing...")
+                return create_structure_set(pr, state, conf, fast_forward)
             minimize(
                 pr,
                 cont,
@@ -149,6 +153,10 @@ def create_structure_set(
     if state == State.ALLMIN:
         try:
             cont = pr["containers"].load(f"{conf.name}VolMin")
+            if cont is None:
+                state = State.VOLMIN
+                logger.error("failed to load previous structure container, backtracing...")
+                return create_structure_set(pr, state, conf, fast_forward)
             minimize(
                 pr,
                 cont,
@@ -166,6 +174,10 @@ def create_structure_set(
             return state
     if state == State.RANDOM:
         cont = pr["containers"].load(f"{conf.name}VolMinAllMin")
+        if cont is None:
+            state = State.ALLMIN
+            logger.error("failed to load previous structure container, backtracing...")
+            return create_structure_set(pr, state, conf, fast_forward)
         rattle(
             pr["containers"],
             cont,
