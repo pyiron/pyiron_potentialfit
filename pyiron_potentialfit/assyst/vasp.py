@@ -68,7 +68,8 @@ class VaspConfig:
         if self.kmesh is not None:
             self.kmesh.configure(job)
         for element, path in self.potcars.items():
-            job.potential[element] = path
+            if element in job.structure.symbols.species():
+                job.potential[element] = path
         if (
             self.magmoms is not None
             and self.magmoms != {}
