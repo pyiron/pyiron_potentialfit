@@ -170,7 +170,9 @@ SYMLINK_TARGET = os.getenv("SPGFIT_SYMLINK_TARGET", default="/cmmc/ptmp")
 
 
 def symlink_project(pr: Project):
-    if SYMLINK_TARGET.lower() == "false":
+    if not isinstance(SYMLINK_TARGET, bool) and SYMLINK_TARGET.lower() == "false":
+        return
+    if isinstance(SYMLINK_TARGET, bool) and not SYMLINK_TARGET:
         return
     if not os.path.isdir(SYMLINK_TARGET):
         warnings.warn(
