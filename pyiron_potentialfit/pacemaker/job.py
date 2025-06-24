@@ -698,23 +698,23 @@ class PacemakerJob(GenericJob, PotentialFit):
         super().compress(files_to_compress=files_to_compress)
 
     def fix_inner(
-            self,
-            potential: str = 'output_potential.yaml',
-            overwrite: bool = False,
-            optimize_repulsion: bool = True,
-            inner_cutoff_type: Literal['zbl', 'distance'] = None,
-            delta_in: float = 0.1,
-            plot: bool = True,
-            log: bool = True,
+        self,
+        potential: str = "output_potential.yaml",
+        overwrite: bool = False,
+        optimize_repulsion: bool = True,
+        inner_cutoff_type: Literal["zbl", "distance"] = None,
+        delta_in: float = 0.1,
+        plot: bool = True,
+        log: bool = True,
     ):
         """
         Try to optimize the inner cutoff functions for repulsion.
 
-        Original observation: with the core-repulsion: auto setting pacemaker simply activates the 
+        Original observation: with the core-repulsion: auto setting pacemaker simply activates the
         inner cutoff where data stops.  For ZBL this often leads to non monotonous behavior in the
         region where the switching between the learning radial basis and ZBL happens.  Especially
-        when delta_in is small large forces can be observed in this region.  This causes problems 
-        for relaxations from difficult starting points (interstitials, gamma surfaces), but also 
+        when delta_in is small large forces can be observed in this region.  This causes problems
+        for relaxations from difficult starting points (interstitials, gamma surfaces), but also
         with stability during MD.
 
         Using energies and forces predicted for a dimer, try to make the onset of the core-repulsion as smooth as possible.
@@ -754,12 +754,10 @@ class PacemakerJob(GenericJob, PotentialFit):
             if isinstance(rr, Iterable):
                 return np.array(list(zip(*[ace_dimer(ace, elems, ri) for ri in rr])))
             s = self.project.create.structure.atoms(
-                    elems,
-                    positions=[[0]*3, [rr, 0, 0]],
-                    cell=[50]*3
+                elems, positions=[[0] * 3, [rr, 0, 0]], cell=[50] * 3
             )
             s.calc = ace
-            return s.get_potential_energy(), s.get_forces()[1,0]
+            return s.get_potential_energy(), s.get_forces()[1, 0]
 
         def ace_dimer_e(ace, elems, rr):
             if isinstance(rr, Iterable):
@@ -777,11 +775,15 @@ class PacemakerJob(GenericJob, PotentialFit):
                 # find minimum of potential then move a bit to the left
                 r0 = so.fmin(lambda r: ace_dimer_e(ace, elems, r), x0=r0, disp=False)[0]
                 r0 -= 0.1
-            return so.fmin(lambda r: -(ace_dimer_f(ace, elems, r)) if r > 0 else np.inf, x0=r0, disp=False, )[0]
+            return so.fmin(
+                lambda r: -(ace_dimer_f(ace, elems, r)) if r > 0 else np.inf,
+                x0=r0,
+                disp=False,
+            )[0]
 
         def get_elems(block):
             elems = block.block_name.split()
-            if len(elems)==1:
+            if len(elems) == 1:
                 elems *= 2
             return elems
 
@@ -789,7 +791,8 @@ class PacemakerJob(GenericJob, PotentialFit):
         # block as well to keep radial basis consistent
         def set_block_values(elems, **kwargs):
             for block in bbs.funcspecs_blocks:
-                if set(get_elems(block)) != set(elems): continue
+                if set(get_elems(block)) != set(elems):
+                    continue
                 for k, v in kwargs.items():
                     setattr(block, k, v)
 
@@ -803,8 +806,10 @@ class PacemakerJob(GenericJob, PotentialFit):
         visited = set()
         for block in bbs.funcspecs_blocks:
             elems = get_elems(block)
-            if len(elems) > 2: continue
-            if tuple(sorted(elems)) in visited: continue
+            if len(elems) > 2:
+                continue
+            if tuple(sorted(elems)) in visited:
+                continue
             visited.add(tuple(sorted(elems)))
 
             # save old inner cutoff and set to zero to have access to unadultered
@@ -821,7 +826,7 @@ class PacemakerJob(GenericJob, PotentialFit):
 
             if optimize_repulsion:
                 # energies and forces we are trying to match
-                r_range = np.linspace(rr - delta_in/2, rr + delta_in/2)
+                r_range = np.linspace(rr - delta_in / 2, rr + delta_in / 2)
                 e0, f0 = ace_dimer(ace0, elems, r_range)
 
                 def step(crp):
@@ -829,50 +834,72 @@ class PacemakerJob(GenericJob, PotentialFit):
                         k, l = crp
                     else:
                         k, l = crp, 1
-                    set_block_values(elems, core_rep_parameters = [np.exp(k), l], r_in=rr, delta_in=delta_in)
+                    set_block_values(
+                        elems,
+                        core_rep_parameters=[np.exp(k), l],
+                        r_in=rr,
+                        delta_in=delta_in,
+                    )
                     acei = pyace.PyACECalculator(bbs)
                     e, f = ace_dimer(acei, elems, r_range)
                     return abs(e - e0).mean()
+
                 if block.inner_cutoff_type == "zbl":
                     # make sure repulsion function is active way before the region were are searching in
                     set_block_values(elems, r_in=rr + 2 + block.delta_in)
-                    set_block_values(elems, core_rep_parameters = [1, 1])
+                    set_block_values(elems, core_rep_parameters=[1, 1])
                     ei = ace_dimer_e(pyace.PyACECalculator(bbs), elems, rr)
                     e0 = ace_dimer_e(ace0, elems, rr)
-                    scale = (e0/ei).mean()
-                    set_block_values(elems, core_rep_parameters = [scale, 1], r_in = rr, delta_in = delta_in)
+                    scale = (e0 / ei).mean()
+                    set_block_values(
+                        elems,
+                        core_rep_parameters=[scale, 1],
+                        r_in=rr,
+                        delta_in=delta_in,
+                    )
                     if plot:
-                        plt.scatter(rr, e0, marker='o', label='stitching point', zorder=10)
+                        plt.scatter(
+                            rr, e0, marker="o", label="stitching point", zorder=10
+                        )
                 else:
-                    ret = so.minimize(step, x0=[1,1], bounds=((-np.inf, np.inf), (0,np.inf)))
-                    set_block_values(elems, core_rep_parameters = [np.exp(ret.x[0]), ret.x[1]], r_in = rr, delta_in = delta_in)
+                    ret = so.minimize(
+                        step, x0=[1, 1], bounds=((-np.inf, np.inf), (0, np.inf))
+                    )
+                    set_block_values(
+                        elems,
+                        core_rep_parameters=[np.exp(ret.x[0]), ret.x[1]],
+                        r_in=rr,
+                        delta_in=delta_in,
+                    )
                     if plot:
-                        plt.scatter(r_range, e0, marker='v', label='stitching points')
+                        plt.scatter(r_range, e0, marker="v", label="stitching points")
                 if log:
                     print(elems, rr, block.core_rep_parameters)
             else:
-                set_block_values(elems, r_in=rr, delta_in=delta_in, core_rep_parameters=[1,1])
+                set_block_values(
+                    elems, r_in=rr, delta_in=delta_in, core_rep_parameters=[1, 1]
+                )
                 e0, f0 = ace_dimer(ace0, elems, rr)
                 if plot:
-                    plt.scatter(rr, e0, marker='v', label='stitching point')
+                    plt.scatter(rr, e0, marker="v", label="stitching point")
 
-            r = np.linspace(np.clip(.9*(rr - delta_in), .1, None), rr * 1.2, 100)
+            r = np.linspace(np.clip(0.9 * (rr - delta_in), 0.1, None), rr * 1.2, 100)
             acef = pyace.PyACECalculator(bbs)
             if plot:
-                plt.plot(r, ace_dimer_e(ace, elems, r), '-', label='original repulsion')
-                plt.plot(r, ace_dimer_e(ace0, elems, r), '--', label='no repulsion')
-                plt.plot(r, ace_dimer_e(acef, elems, r), '-', label='updated repulsion')
+                plt.plot(r, ace_dimer_e(ace, elems, r), "-", label="original repulsion")
+                plt.plot(r, ace_dimer_e(ace0, elems, r), "--", label="no repulsion")
+                plt.plot(r, ace_dimer_e(acef, elems, r), "-", label="updated repulsion")
                 plt.legend()
 
         if overwrite:
-            copyfile(potfile, f'{potfile}.backup')
+            copyfile(potfile, f"{potfile}.backup")
             bbs.save(potfile)
             # convert to yace format
             pyace.ACEBBasisSet(bbs).to_ACECTildeBasisSet().save_yaml(
                 os.path.splitext(potfile)[0] + ".yace"
             )
         else:
-            ofile = os.path.splitext(potfile)[0] + '_inner.yaml'
+            ofile = os.path.splitext(potfile)[0] + "_inner.yaml"
             bbs.save(ofile)
             # convert to yace format
             pyace.ACEBBasisSet(bbs).to_ACECTildeBasisSet().save_yaml(
