@@ -30,8 +30,8 @@ from traitlets import (
     Callable,
 )
 from pyiron_atomistics.atomistics.structure.structurestorage import StructureStorage
-import pyiron_contrib.jobfactories
-from pyiron_contrib.repair import HandyMan
+import pyiron_potentialfit.assyst.jobfactories
+from pyiron_potentialfit.assyst.repair import HandyMan
 
 import numpy as np
 import pandas as pd
@@ -364,8 +364,8 @@ class StructureInput(SymlinkInput, Input):
 
     # This is what it really should be, but the way traitlets implement type checking conflicts with importlib.reload,
     # which makes prototyping very cumbersome
-    # job = Instance(pyiron_contrib.jobfactories.JobFactory)
-    job = Any(help="Must be a JobFactory from pyiron_contrib.jobfactories")
+    # job = Instance(pyiron_potentialfit.assyst.jobfactories.JobFactory)
+    job = Any(help="Must be a JobFactory from pyiron_potentialfit.assyst.jobfactories")
     structures = Instance(StructureStorage, args=())
     output_structures = Bool(
         default_value=False,
@@ -376,7 +376,7 @@ class StructureInput(SymlinkInput, Input):
 
     @default("job")
     def get_job_default(self):
-        return pyiron_contrib.jobfactories.MlipFactory()
+        return pyiron_potentialfit.assyst.jobfactories.MlipFactory()
 
     @validate("table_setup")
     def validate_table_setup(self, proposal):

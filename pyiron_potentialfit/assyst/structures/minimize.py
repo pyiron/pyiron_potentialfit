@@ -13,6 +13,7 @@ from ..projectflow import (
     RunAgain,
     WorkflowProjectConfig,
 )
+from ..jobfactories import VaspFactory
 
 from pyiron_potentialfit.atomistics.job.trainingcontainer import (
     TrainingContainer,
@@ -20,7 +21,6 @@ from pyiron_potentialfit.atomistics.job.trainingcontainer import (
 )
 from pyiron_atomistics.atomistics.structure.structurestorage import StructureStorage
 from pyiron_atomistics.atomistics.job.structurecontainer import StructureContainer
-from pyiron_contrib.jobfactories import VaspFactory
 
 from traitlets import Instance, Float, Bool, Int, CaselessStrEnum, Dict
 

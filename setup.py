@@ -37,8 +37,7 @@ setup(
         "runnerase==0.3.3",
         "pyiron_snippets>=0.1.1,<=0.1.4",
         "pyparsing>=3.1.2,<3.2",
-        # spgfit
-        "pyiron_contrib==0.1.18",
+        # assyst
         "dill>=0.3.0",
         "seaborn>=0.13.0,<0.14",
         "pyxtal>=0.6.0,<1.1",
