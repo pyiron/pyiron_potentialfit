@@ -12,7 +12,7 @@ from ..vasp import VaspConfig
 
 from pyiron_base import Project
 from pyiron_potentialfit.atomistics.job.trainingcontainer import TrainingContainer
-from pyiron_contrib.jobfactories import VaspFactory
+from pyiron_potentialfit.assyst.jobfactories import VaspFactory
 from structuretoolkit import get_neighbors
 
 
