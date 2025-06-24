@@ -133,7 +133,9 @@ def create_structure_set(
             cont = pr["containers"].load(f"{conf.name}")
             if cont is None:
                 state = State.SPG
-                logger.error("failed to load previous structure container, backtracing...")
+                logger.error(
+                    "failed to load previous structure container, backtracing..."
+                )
                 return create_structure_set(pr, state, conf, fast_forward)
             minimize(
                 pr,
@@ -155,7 +157,9 @@ def create_structure_set(
             cont = pr["containers"].load(f"{conf.name}VolMin")
             if cont is None:
                 state = State.VOLMIN
-                logger.error("failed to load previous structure container, backtracing...")
+                logger.error(
+                    "failed to load previous structure container, backtracing..."
+                )
                 return create_structure_set(pr, state, conf, fast_forward)
             minimize(
                 pr,
