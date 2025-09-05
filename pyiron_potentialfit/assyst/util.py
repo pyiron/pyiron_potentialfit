@@ -272,8 +272,8 @@ class ServerConfig:
     """Stores computational parameters and applies them to pyiron jobs."""
 
     cores: int = 40
-    run_time: float = 2 * 60 * 60  # seconds
-    queue: str = "cmti"
+    run_time: float | None = 2 * 60 * 60  # seconds
+    queue: str | None = "cmti"
 
     def configure_server_on_job(self, job: GenericJob) -> GenericJob:
         """
@@ -285,7 +285,9 @@ class ServerConfig:
         Returns:
             same job as given
         """
-        job.server.queue = self.queue
+        if self.queue is not None:
+            job.server.queue = self.queue
+        if self.run_time is not None:
+            job.server.run_time = self.run_time
         job.server.cores = self.cores
-        job.server.run_time = self.run_time
         return job
