@@ -191,9 +191,6 @@ def minimize(
     vasp.incar.setdefault("POTIM", 0.1)
     vasp.incar.setdefault("EDIFF", 1e-6)
 
-    if server.queue is None:
-        server.queue = "cmti"
-
     def if_new(flow):
         logger.info("starting from scratch")
         if flow.input.read_only:

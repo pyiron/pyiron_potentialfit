@@ -34,6 +34,7 @@ class TrainingDataFlow(StructureProjectFlow):
         name: str = "Results",
         num_neighbors: Optional[int] = None,
         delete_existing_job: bool = False,
+        queue: str | None = "cmti"
     ) -> TrainingContainer:
         """
         Collect results in a new TrainingContainer.
@@ -45,6 +46,8 @@ class TrainingDataFlow(StructureProjectFlow):
                 calculate nearest neighbors directly on the collected structures
             delete_existing_job (bool):
                 recreate TrainingContainer if it exists already
+            queue (str, optional):
+                pyiron queue to submit to, if given
 
         Returns:
             TrainingContainer: container with all structures + efs
@@ -66,7 +69,8 @@ class TrainingDataFlow(StructureProjectFlow):
         if num_neighbors is not None:
             train.input.save_neighbors = True
             train.input.num_neighbors = num_neighbors
-            train.server.queue = "cmti"
+            if queue is not None:
+                train.server.queue = queue
             train.server.cores = 1
             train.server.max_memory = 1e-1 * train.number_of_structures
         train.run()
@@ -269,6 +273,7 @@ def combine(
     energy_cap=None,
     check_duplicates=True,
     delete_existing_job=False,
+    queue: str | None = "cmti",
 ) -> TrainingContainer:
     """
     Combine a list of training containers into a new container.
@@ -285,6 +290,7 @@ def combine(
         check_duplicates (bool): discard duplicated structures; some care has been taken to optimize this, but it can be
                 costly for large datasets
         delete_existing_job (bool): combine containers again, even if `pr[name]` exists already
+        queue (str, optional): pyiron queue to submit to, if given
 
     Returns:
         :class:`.TrainingContainer`: contained with the combined training data
@@ -347,7 +353,8 @@ def combine(
         every.subtract_reference(reference_energies)
     every.input.save_neighbors = True
     every.input.num_neighbors = 150
-    every.server.queue = "cmti"
+    if queue is not None:
+        every.server.queue = queue
     every.server.cores = 1
     every.server.run_time = 60 * 60
     every.run()
