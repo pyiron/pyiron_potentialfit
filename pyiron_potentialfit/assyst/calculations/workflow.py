@@ -34,7 +34,7 @@ class TrainingDataFlow(StructureProjectFlow):
         name: str = "Results",
         num_neighbors: Optional[int] = None,
         delete_existing_job: bool = False,
-        queue: str | None = "cmti"
+        queue: str | None = "cmti",
     ) -> TrainingContainer:
         """
         Collect results in a new TrainingContainer.
