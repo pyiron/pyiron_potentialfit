@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Union, Optional, Dict, Tuple
 
 from pyiron_base import GenericJob
+from pyiron_potentialfit.assyst.jobfactories import JobFactory
 
 
 @dataclass
@@ -68,7 +69,7 @@ class VaspConfig:
         if self.kmesh is not None:
             self.kmesh.configure(job)
         for element, path in self.potcars.items():
-            if element in job.structure.symbols.species():
+            if isinstance(job, JobFactory) or element in job.structure.symbols.species():
                 job.potential[element] = path
         if (
             self.magmoms is not None
