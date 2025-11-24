@@ -34,8 +34,8 @@ setup(
         "pyiron_atomistics==0.7.19",
         "scipy==1.15.2",
         "runnerase==0.3.3",
+        "pyparsing>=3.1.2,<3.3",
         "pyiron_snippets>=0.1.1,<2",
-        "pyparsing>=3.1.2,<3.2",
         # assyst
         "dill>=0.3.0",
         "seaborn>=0.13.0,<0.14",
