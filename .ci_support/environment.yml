@@ -6,15 +6,15 @@ dependencies:
 - coverage
 - codacy-coverage
 - matplotlib >=3.8.4,<4
-- numpy =1.26.4
-- pyiron_base =0.15.0
-- pyiron_atomistics =0.7.19
+- numpy =2.3.4
+- pyiron_base =0.15.5
+- pyiron_atomistics =0.8.1
 - pyiron-data =0.0.25
 - pyiron_contrib =0.1.18
 - pyiron_snippets >=0.1.1,<=0.1.4
-- pyparsing =3.1.2
-- scipy =1.15.2
+- pyparsing <3.3
+- scipy =1.16.3
 - dill >=0.3
 - seaborn >=0.13.0,<0.14
 - runnerase =0.3.3
-- pyxtal >=0.6.0,<1.1
+- pyxtal >=0.6.0,<1.2

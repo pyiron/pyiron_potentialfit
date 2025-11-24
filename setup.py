@@ -29,17 +29,17 @@ setup(
     install_requires=[
         "ase==3.25.0",
         "matplotlib>=3.8.4,<4",
-        "numpy==1.26.4",
-        "pyiron_base==0.15.0",
-        "pyiron_atomistics==0.7.19",
-        "scipy==1.15.2",
+        "numpy==2.3.4",
+        "pyiron_base==0.15.5",
+        "pyiron_atomistics==0.8.1",
+        "scipy==1.16.3",
         "runnerase==0.3.3",
-        "pyiron_snippets>=0.1.1,<2",
+        "pyiron_snippets>=0.1.1,<=0.1.4",
         "pyparsing>=3.1.2,<3.2",
         # assyst
         "dill>=0.3.0",
         "seaborn>=0.13.0,<0.14",
-        "pyxtal>=0.6.0,<1.1",
+        "pyxtal>=0.6.0,<1.2",
     ],
     cmdclass=versioneer.get_cmdclass(),
     entry_points={
