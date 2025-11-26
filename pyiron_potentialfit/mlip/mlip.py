@@ -260,7 +260,7 @@ class Mlip(GenericJob, PotentialFit):
         store.add_array("stress", dtype=np.float64, shape=(6,), per="chunk")
         for cfg in loadcfgs(os.path.join(self.working_directory, filename)):
             struct = Atoms(
-                symbols=species[np.cast[np.int64](cfg.types)],
+                symbols=species[cfg.types.astype(np.int64)],
                 positions=cfg.pos,
                 cell=cfg.lat,
                 pbc=[True] * 3,
