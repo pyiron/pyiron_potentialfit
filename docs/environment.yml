@@ -7,7 +7,7 @@ dependencies:
 - sphinx-gallery
 - sphinx-rtd-theme
 - versioneer
-- ase =3.25.0
+- ase =3.27.0
 - coveralls
 - coverage
 - codacy-coverage
