@@ -27,7 +27,7 @@ setup(
     keywords="pyiron",
     packages=find_packages(exclude=["*tests*"]),
     install_requires=[
-        "ase==3.25.0",
+        "ase==3.27.0",
         "matplotlib>=3.8.4,<4",
         "numpy>=2,<3",
         "pyiron_base==0.15.7",
