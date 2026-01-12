@@ -32,7 +32,7 @@ setup(
         "numpy>=2,<3",
         "pyiron_base==0.15.7",
         "pyiron_atomistics==0.8.4",
-        "scipy==1.17.0",
+        "scipy>=1.16.0,<2",
         "runnerase==0.3.3",
         "pyiron_snippets>=1,<2",
         "pyparsing>=3.1.2,<3.3",
