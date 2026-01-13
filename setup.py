@@ -35,7 +35,7 @@ setup(
         "scipy>=1.16.0,<2",
         "runnerase==0.3.3",
         "pyiron_snippets>=1,<2",
-        "pyparsing>=3.1.2,<3.3",
+        "pyparsing>=3.1.2,<3.4",
         # assyst
         "dill>=0.3.0",
         "seaborn>=0.13.0,<0.14",
